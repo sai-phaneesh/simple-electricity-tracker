@@ -137,6 +137,8 @@ class _CreateCycleScreenState extends State<CreateCycleScreen> {
                             border: OutlineInputBorder(),
                             floatingLabelBehavior: FloatingLabelBehavior.always,
                           ),
+                          keyboardType:
+                              TextInputType.numberWithOptions(decimal: true),
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly
                           ],

@@ -60,6 +60,8 @@ class _CreateConsumptionScreenState extends State<CreateConsumptionScreen> {
                       floatingLabelBehavior: FloatingLabelBehavior.always,
                     ),
                     inputFormatters: const [MeterReadingTextInputFormatter()],
+                    keyboardType:
+                        TextInputType.numberWithOptions(decimal: true),
                   ),
                   AppActions(
                     mainAxisAlignment: MainAxisAlignment.end,
