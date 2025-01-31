@@ -3,6 +3,7 @@ import 'package:electricity/components/actions.dart';
 import 'package:electricity/components/text_fields/date_picker_textfield.dart';
 import 'package:electricity/utils/extensions/navigation.dart';
 import 'package:electricity/utils/extensions/toast.dart';
+import 'package:electricity/utils/formatters/meter_reading_input_formatter.dart';
 import 'package:electricity/utils/helpers/focus_remove_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -117,8 +118,8 @@ class _CreateCycleScreenState extends State<CreateCycleScreen> {
                             border: OutlineInputBorder(),
                             floatingLabelBehavior: FloatingLabelBehavior.always,
                           ),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly
+                          inputFormatters: const [
+                            MeterReadingTextInputFormatter(decimalRange: 2)
                           ],
                           validator: (value) {
                             if (value == null || value.isEmpty) {

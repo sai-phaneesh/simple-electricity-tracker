@@ -2,9 +2,9 @@ import 'package:electricity/bloc/dashboard_bloc.dart';
 import 'package:electricity/components/actions.dart';
 import 'package:electricity/utils/extensions/navigation.dart';
 import 'package:electricity/utils/extensions/toast.dart';
+import 'package:electricity/utils/formatters/meter_reading_input_formatter.dart';
 import 'package:electricity/utils/helpers/focus_remove_wrapper.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class CreateConsumptionScreen extends StatefulWidget {
@@ -59,7 +59,7 @@ class _CreateConsumptionScreenState extends State<CreateConsumptionScreen> {
                       border: OutlineInputBorder(),
                       floatingLabelBehavior: FloatingLabelBehavior.always,
                     ),
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    inputFormatters: const [MeterReadingTextInputFormatter()],
                   ),
                   AppActions(
                     mainAxisAlignment: MainAxisAlignment.end,

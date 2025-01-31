@@ -46,7 +46,7 @@ class CycleSummaryCard extends StatelessWidget {
             ],
           ),
           Text(
-            "${selectedCycle.totalConsumptions} units",
+            "${selectedCycle.totalConsumptions.toStringAsFixed(2)} units",
             style: context.theme.textTheme.titleLarge,
           ),
           Row(
