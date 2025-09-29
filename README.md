@@ -1,4 +1,4 @@
-# electricity
+# Electricity
 
 A new Flutter project.
 

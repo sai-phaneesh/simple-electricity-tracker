@@ -1,28 +1,23 @@
-import 'package:electricity/bloc/dashboard_bloc.dart';
-import 'package:electricity/features/dashboard/presentation/screens/dashboard.dart';
-import 'package:electricity/manager/shared_pref_manager.dart';
-import 'package:electricity/shared/theme_cubit/theme_cubit.dart';
-import 'package:flutter/foundation.dart';
+import 'package:electricity/core/router/app_router.dart';
+import 'package:electricity/data/datasources/local/preferences/shared_pref_manager.dart';
+import 'package:electricity/presentation/shared/bloc/dashboard/dashboard_bloc.dart';
+import 'package:electricity/presentation/shared/cubit/theme_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:hydrated_bloc/hydrated_bloc.dart';
-import 'package:path_provider/path_provider.dart';
+final _router = createAppRouter();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  HydratedBloc.storage = await HydratedStorage.build(
-    storageDirectory: kIsWeb
-        ? HydratedStorageDirectory.web
-        : HydratedStorageDirectory((await getTemporaryDirectory()).path),
-  );
-
   await SharedPrefManager.init();
   final pref = SharedPrefManager();
-  final theme = pref.getThemeMode();
+  final themeJson = pref.getThemeModeJson();
+  final theme = themeJson == null
+      ? ThemeState.initial()
+      : ThemeState.fromJson(themeJson);
 
   runApp(
     BlocProvider(
@@ -40,12 +35,8 @@ class MyApp extends StatelessWidget {
     final themeState = context.watch<ThemeCubit>().state;
 
     return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (context) => DashboardBloc(),
-        ),
-      ],
-      child: MaterialApp(
+      providers: [BlocProvider(create: (context) => DashboardBloc())],
+      child: MaterialApp.router(
         title: 'Flutter Demo',
         themeMode: themeState.mode,
         theme: ThemeData(
@@ -61,7 +52,7 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
         ),
         darkTheme: ThemeData.dark(useMaterial3: true),
-        home: const Dashboard(),
+        routerConfig: _router,
       ),
     );
   }
