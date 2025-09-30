@@ -1,4 +1,5 @@
 {
   "editor.formatOnSave": true,
-  "explorer.compactFolders": false
+  "explorer.compactFolders": false,
+  "dart.mcpServer": true
 }

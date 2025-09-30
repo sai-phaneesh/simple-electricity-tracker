@@ -5,7 +5,7 @@ class FocusRemoveWrapper extends StatelessWidget {
 
   final Widget child;
 
-  static removeFocus() => FocusManager.instance.primaryFocus?.unfocus();
+  static void removeFocus() => FocusManager.instance.primaryFocus?.unfocus();
 
   @override
   Widget build(BuildContext context) {

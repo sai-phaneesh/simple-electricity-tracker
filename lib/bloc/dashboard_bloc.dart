@@ -9,7 +9,7 @@ part 'dashboard_event.dart';
 part 'dashboard_state.dart';
 part 'models.dart';
 
-final uuid = Uuid();
+final uuid = const Uuid();
 
 class DashboardBloc extends HydratedBloc<DashboardEvent, DashboardState> {
   Cycle? selectedCycle;
@@ -42,26 +42,27 @@ class DashboardBloc extends HydratedBloc<DashboardEvent, DashboardState> {
     Emitter<DashboardState> emit,
   ) async {
     if (_cycles.firstWhereOrNull((e) => e.name == event.name) != null) {
-      emit(CycleCreationFailed('Cycle with same name already exists.'));
+      emit(const CycleCreationFailed('Cycle with same name already exists.'));
       return;
     }
     final Cycle cycle = Cycle(
-        id: uuid.v4(),
-        name: event.name,
-        startDate: event.startDate,
-        endDate: event.endDate,
-        createdOn: DateTime.now(),
-        updatedOn: DateTime.now(),
-        meterReading: event.meterReading,
-        maxUnits: event.maxUnits,
-        consumptions: [
-          Consumption(
-            id: uuid.v4(),
-            meterReading: event.meterReading,
-            date: DateTime.now(),
-            unitsConsumed: 0,
-          ),
-        ]);
+      id: uuid.v4(),
+      name: event.name,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      createdOn: DateTime.now(),
+      updatedOn: DateTime.now(),
+      meterReading: event.meterReading,
+      maxUnits: event.maxUnits,
+      consumptions: [
+        Consumption(
+          id: uuid.v4(),
+          meterReading: event.meterReading,
+          date: DateTime.now(),
+          unitsConsumed: 0,
+        ),
+      ],
+    );
     _cycles.add(cycle);
     emit(CycleCreatedSuccessfully());
   }
@@ -72,14 +73,15 @@ class DashboardBloc extends HydratedBloc<DashboardEvent, DashboardState> {
   ) async {
     final Cycle? cycle = _cycles.firstWhereOrNull((e) => e.id == event.cycleId);
     if (cycle == null) {
-      emit(ConsumptionCreationFailed('Cycle not found.'));
+      emit(const ConsumptionCreationFailed('Cycle not found.'));
       return;
     }
     if (event.meterReading < cycle.meterReading ||
         cycle.consumptions.firstWhereOrNull(
-                (e) => e.meterReading >= event.meterReading) !=
+              (e) => e.meterReading >= event.meterReading,
+            ) !=
             null) {
-      emit(ConsumptionCreationFailed('Enter proper meter reading.'));
+      emit(const ConsumptionCreationFailed('Enter proper meter reading.'));
       return;
     }
     cycle.consumptions.add(
@@ -111,7 +113,7 @@ class DashboardBloc extends HydratedBloc<DashboardEvent, DashboardState> {
   ) {
     final cycleIndex = _cycles.indexWhere((e) => e.id == event.cycleId);
     if (cycleIndex == -1) {
-      emit(ConsumptionDeletionFailed('Cycle does not exist'));
+      emit(const ConsumptionDeletionFailed('Cycle does not exist'));
       return null;
     }
     final cycle = _cycles[cycleIndex];

@@ -1,6 +1,5 @@
 import 'package:electricity/bloc/dashboard_bloc.dart';
 import 'package:electricity/components/delete_confirmation_modal.dart';
-import 'package:electricity/features/cycles/presentation/screens/create_cycle_screen.dart';
 import 'package:electricity/utils/extensions/navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,11 +17,9 @@ class AppDrawer extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            DrawerHeader(
-              child: Text('Electricity Tracker'),
-            ),
+            DrawerHeader(child: Text('Electricity Tracker')),
             CycleSelectorList(),
-            DrawerActions()
+            DrawerActions(),
           ],
         ),
       ),
@@ -38,11 +35,7 @@ class CycleSelectorList extends StatelessWidget {
     final cycles = context.watch<DashboardBloc>().cycles;
     final selectedCycle = context.watch<DashboardBloc>().selectedCycle;
     if (cycles.isEmpty) {
-      return const Expanded(
-        child: Center(
-          child: Text('No Cycles Found'),
-        ),
-      );
+      return const Expanded(child: Center(child: Text('No Cycles Found')));
     }
     return Expanded(
       child: ListView.builder(
@@ -55,27 +48,28 @@ class CycleSelectorList extends StatelessWidget {
           return ListTile(
             textColor: selected ? null : Colors.grey,
             title: Text(cycle.name),
-            subtitle:
-                Text('${cycle.totalConsumptions.toStringAsFixed(2)} Units'),
+            subtitle: Text(
+              '${cycle.totalConsumptions.toStringAsFixed(2)} Units',
+            ),
             trailing: Icon(
               Icons.chevron_right,
               color: selected ? null : Colors.grey,
             ),
             onTap: () {
-              context
-                  .read<DashboardBloc>()
-                  .add(UpdateSelectedCycleEvent(cycle: cycle));
+              context.read<DashboardBloc>().add(
+                UpdateSelectedCycleEvent(cycle: cycle),
+              );
               context.pop();
             },
             onLongPress: () async {
               final delete = await showDialog<bool>(
                 context: context,
-                builder: (context) => DeleteConfirmationModal(),
+                builder: (context) => const DeleteConfirmationModal(),
               );
               if (delete != true || !context.mounted) return;
-              context
-                  .read<DashboardBloc>()
-                  .add(DeleteCycleEvent(cycleId: cycle.id));
+              context.read<DashboardBloc>().add(
+                DeleteCycleEvent(cycleId: cycle.id),
+              );
             },
           );
         },
@@ -93,14 +87,6 @@ class DrawerActions extends StatelessWidget {
       child: Column(
         children: [
           const Divider(),
-          ListTile(
-            onTap: () {
-              context.pop();
-              context.push(const CreateCycleScreen());
-            },
-            title: const Text('Create Cycle'),
-            trailing: const Icon(Icons.add),
-          ),
           const ThemeHandlerListTile(),
           const AboutTile(),
         ],
@@ -131,8 +117,6 @@ class AboutScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('About')),
-    );
+    return Scaffold(appBar: AppBar(title: const Text('About')));
   }
 }

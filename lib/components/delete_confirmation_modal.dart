@@ -20,7 +20,7 @@ class DeleteConfirmationModal extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               spacing: 20,
               children: [
-                Icon(
+                const Icon(
                   Icons.warning_sharp,
                   size: 30,
                   color: Colors.redAccent,
@@ -37,8 +37,9 @@ class DeleteConfirmationModal extends StatelessWidget {
             ),
             Text(
               'NOTE: This action cannot be undone.',
-              style: context.theme.textTheme.bodySmall
-                  ?.copyWith(color: Colors.red),
+              style: context.theme.textTheme.bodySmall?.copyWith(
+                color: Colors.red,
+              ),
             ),
             AppActions(
               mainAxisAlignment: MainAxisAlignment.end,

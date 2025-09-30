@@ -60,24 +60,26 @@ class _CreateConsumptionScreenState extends State<CreateConsumptionScreen> {
                       floatingLabelBehavior: FloatingLabelBehavior.always,
                     ),
                     inputFormatters: const [MeterReadingTextInputFormatter()],
-                    keyboardType:
-                        TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                   ),
                   AppActions(
                     mainAxisAlignment: MainAxisAlignment.end,
                     onCancel: context.pop,
                     onSubmit: () {
-                      final double? meterReading =
-                          double.tryParse(_meterReadingController.text.trim());
+                      final double? meterReading = double.tryParse(
+                        _meterReadingController.text.trim(),
+                      );
 
                       final String cycleId = widget.cycleId;
 
                       context.read<DashboardBloc>().add(
-                            CreateConsumptionEvent(
-                              cycleId: cycleId,
-                              meterReading: meterReading!,
-                            ),
-                          );
+                        CreateConsumptionEvent(
+                          cycleId: cycleId,
+                          meterReading: meterReading!,
+                        ),
+                      );
                     },
                   ),
                 ],

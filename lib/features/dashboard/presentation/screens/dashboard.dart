@@ -2,7 +2,6 @@ import 'package:electricity/bloc/dashboard_bloc.dart';
 import 'package:electricity/components/app_drawer.dart';
 import 'package:electricity/components/delete_confirmation_modal.dart';
 import 'package:electricity/features/consumptions/presentation/create_consumption_screen.dart';
-import 'package:electricity/features/cycles/presentation/screens/create_cycle_screen.dart';
 import 'package:electricity/features/dashboard/presentation/components/cycle_summary_card.dart';
 import 'package:electricity/utils/extensions/navigation.dart';
 import 'package:flutter/material.dart';
@@ -40,26 +39,25 @@ class _DashboardState extends State<Dashboard> {
       ),
       drawer: const AppDrawer(),
       body: SafeArea(
-        child: Builder(builder: (context) {
-          if (selectedCycle == null) {
-            return Center(
-              child: FilledButton(
-                onPressed: () {
-                  _scaffoldKey.currentState?.openDrawer();
-                },
-                child: Text('Select a cycle'),
-              ),
+        child: Builder(
+          builder: (context) {
+            if (selectedCycle == null) {
+              return Center(
+                child: FilledButton(
+                  onPressed: () {
+                    _scaffoldKey.currentState?.openDrawer();
+                  },
+                  child: const Text('Select a cycle'),
+                ),
+              );
+            }
+            return const Column(
+              spacing: 20,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [CycleSummaryCard(), ConsumptionsListView()],
             );
-          }
-          return const Column(
-            spacing: 20,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              CycleSummaryCard(),
-              ConsumptionsListView(),
-            ],
-          );
-        }),
+          },
+        ),
       ),
       floatingActionButton: selectedCycle == null
           ? null
@@ -96,16 +94,18 @@ class ConsumptionsListView extends StatelessWidget {
             onLongPress: () async {
               final delete = await showDialog<bool>(
                 context: context,
-                builder: (context) => DeleteConfirmationModal(),
+                builder: (context) => const DeleteConfirmationModal(),
               );
               if (delete != true || !context.mounted) return;
 
               final selectedCycle = context.read<DashboardBloc>().selectedCycle;
               if (selectedCycle == null) return;
-              context.read<DashboardBloc>().add(DeleteConsumptionEvent(
-                    cycleId: selectedCycle.id,
-                    consumptionId: consumption.id,
-                  ));
+              context.read<DashboardBloc>().add(
+                DeleteConsumptionEvent(
+                  cycleId: selectedCycle.id,
+                  consumptionId: consumption.id,
+                ),
+              );
             },
             leading: Text('${consumptions.length - (index)}'),
             title: Text(consumption.meterReading.toString()),
