@@ -21,6 +21,8 @@ class SharedPrefManager {
 
   // Constants for keys
   static const _keyThemeMode = "theme_mode";
+  static const _keySelectedHouseId = "selected_house_id";
+  static const _keySelectedCycleId = "selected_cycle_id";
 
   // Save the theme mode
   Future<void> saveThemeMode({required Map<String, dynamic> themeJson}) async {
@@ -37,6 +39,26 @@ class SharedPrefManager {
     }
     return null;
   }
+
+  Future<void> saveSelectedHouseId(String? houseId) async {
+    if (houseId == null) {
+      await _prefs.remove(_keySelectedHouseId);
+      return;
+    }
+    await _prefs.setString(_keySelectedHouseId, houseId);
+  }
+
+  String? getSelectedHouseId() => _prefs.getString(_keySelectedHouseId);
+
+  Future<void> saveSelectedCycleId(String? cycleId) async {
+    if (cycleId == null) {
+      await _prefs.remove(_keySelectedCycleId);
+      return;
+    }
+    await _prefs.setString(_keySelectedCycleId, cycleId);
+  }
+
+  String? getSelectedCycleId() => _prefs.getString(_keySelectedCycleId);
 
   void clear() {
     _prefs.clear();

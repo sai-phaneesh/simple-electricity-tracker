@@ -190,11 +190,11 @@ class $HousesTableTable extends HousesTable
         address.isAcceptableOrUnknown(data['address']!, _addressMeta),
       );
     }
-    if (data.containsKey('meterNumber')) {
+    if (data.containsKey('meter_number')) {
       context.handle(
         _meterNumberMeta,
         meterNumber.isAcceptableOrUnknown(
-          data['meterNumber']!,
+          data['meter_number']!,
           _meterNumberMeta,
         ),
       );

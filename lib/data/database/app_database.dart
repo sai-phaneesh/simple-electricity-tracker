@@ -1,17 +1,17 @@
 import 'package:drift/drift.dart';
-import 'package:drift_flutter/drift_flutter.dart';
 
 import 'tables/houses_table.dart';
 import 'tables/cycles_table.dart';
 import 'tables/electricity_readings_table.dart';
 import 'database_migrations.dart';
+import 'connection/connection.dart';
 
 part 'app_database.g.dart';
 
 @DriftDatabase(tables: [HousesTable, CyclesTable, ElectricityReadingsTable])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
-  AppDatabase.withExecutor(super.executor);
+  AppDatabase() : super(openConnection());
+  AppDatabase.fromExecutor(super.executor);
 
   @override
   int get schemaVersion => 1;
@@ -121,10 +121,4 @@ class AppDatabase extends _$AppDatabase {
     final result = await query.getSingle();
     return result.read(countExp) ?? 0;
   }
-}
-
-QueryExecutor _openConnection() {
-  // driftDatabase from package:drift_flutter stores the database in
-  // getApplicationDocumentsDirectory().
-  return driftDatabase(name: 'electricity_tracker_db');
 }
