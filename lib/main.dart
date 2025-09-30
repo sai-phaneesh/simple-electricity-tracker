@@ -1,16 +1,26 @@
+import 'package:electricity/core/config/supabase_config.dart';
 import 'package:electricity/core/di/dependency_injection.dart';
 import 'package:electricity/core/router/app_router.dart';
 import 'package:electricity/data/datasources/local/preferences/shared_pref_manager.dart';
 import 'package:electricity/presentation/shared/providers/theme_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 final _router = createAppRouter();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
+
+  // Initialize Supabase
+  await Supabase.initialize(
+    url: SupabaseConfig.supabaseUrl,
+    anonKey: SupabaseConfig.supabaseAnonKey,
+  );
 
   await DependencyInjection.init();
 

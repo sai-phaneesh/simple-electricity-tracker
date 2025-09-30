@@ -1,3 +1,6 @@
+import 'package:electricity/core/providers/app_providers.dart';
+import 'package:electricity/core/providers/backup_providers.dart';
+import 'package:electricity/manager/backup_service.dart';
 import 'package:electricity/presentation/shared/widgets/app_drawer.dart';
 import 'package:electricity/presentation/shared/widgets/theme_handler_widgets.dart';
 import 'package:flutter/material.dart';
@@ -13,17 +16,11 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isBackingUp = false;
   bool _isRestoring = false;
-  DateTime? _lastBackupTime;
-  DateTime? _lastRestoreTime;
 
   @override
   Widget build(BuildContext context) {
-    // TODO: Replace with actual Supabase auth state from provider
-    // Example: final authState = ref.watch(supabaseAuthProvider);
-    // final isLoggedIn = authState.isAuthenticated;
-    // final userEmail = authState.user?.email;
-    const isLoggedIn = false; // Will be dynamic once Supabase is integrated
-    const userEmail = null;
+    final currentUser = ref.watch(currentUserProvider);
+    final backupMetadataAsync = ref.watch(_backupMetadataProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -31,13 +28,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Theme Settings
             const ThemeHandlerListTile(),
             const AboutTile(),
-
             const Divider(height: 32),
-
-            // Backup & Restore Section
             Text(
               'Backup & Restore',
               style: Theme.of(
@@ -45,9 +38,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-
-            if (!isLoggedIn) ...[
-              // Login Card
+            if (currentUser == null) ...[
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -78,14 +69,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
-                          onPressed: () {
-                            // TODO: Implement Supabase login
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Login feature coming soon!'),
-                              ),
-                            );
-                          },
+                          onPressed: () => _showAuthDialog(context),
                           icon: const Icon(Icons.login),
                           label: const Text('Sign In'),
                         ),
@@ -95,7 +79,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ] else ...[
-              // Logged In - Show Backup/Restore
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -117,27 +100,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   'Signed in',
                                   style: Theme.of(context).textTheme.titleSmall,
                                 ),
-                                if (userEmail != null)
-                                  Text(
-                                    userEmail.toString(),
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
-                                  ),
+                                Text(
+                                  currentUser.email ?? 'No email',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
                               ],
                             ),
                           ),
                           TextButton(
-                            onPressed: () {
-                              // TODO: Implement logout
-                            },
+                            onPressed: _signOut,
                             child: const Text('Sign Out'),
                           ),
                         ],
                       ),
                       const Divider(height: 24),
-
-                      // Backup Button
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
@@ -157,23 +133,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ),
                       ),
-
-                      if (_lastBackupTime != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Last backup: ${_formatDateTime(_lastBackupTime!)}',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                        ),
-                      ],
-
+                      backupMetadataAsync.when(
+                        data: (metadata) {
+                          if (metadata == null) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'Last backup: ${_formatDateTime(metadata.createdAt)}\n${metadata.housesCount} houses, ${metadata.cyclesCount} cycles, ${metadata.readingsCount} readings',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          );
+                        },
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, _) => const SizedBox.shrink(),
+                      ),
                       const SizedBox(height: 16),
-
-                      // Restore Button
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
@@ -195,19 +174,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ),
                       ),
-
-                      if (_lastRestoreTime != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Last restore: ${_formatDateTime(_lastRestoreTime!)}',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -219,22 +185,142 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Future<void> _showAuthDialog(BuildContext context) async {
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+    var isSignUp = false;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text(isSignUp ? 'Sign Up' : 'Sign In'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  border: OutlineInputBorder(),
+                ),
+                obscureText: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                try {
+                  if (isSignUp) {
+                    await ref
+                        .read(signUpUseCaseProvider)
+                        .execute(
+                          emailController.text.trim(),
+                          passwordController.text,
+                        );
+                  } else {
+                    await ref
+                        .read(signInUseCaseProvider)
+                        .execute(
+                          emailController.text.trim(),
+                          passwordController.text,
+                        );
+                  }
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          isSignUp
+                              ? 'Account created! Check your email to verify.'
+                              : 'Signed in successfully!',
+                        ),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(e.toString()),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: Text(isSignUp ? 'Sign Up' : 'Sign In'),
+            ),
+            TextButton(
+              onPressed: () => setState(() => isSignUp = !isSignUp),
+              child: Text(
+                isSignUp ? 'Already have an account?' : 'Create account',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _signOut() async {
+    try {
+      await ref.read(signOutUseCaseProvider).execute();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Signed out successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sign out failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _performBackup() async {
     setState(() => _isBackingUp = true);
 
     try {
-      // TODO: Implement Supabase backup
-      await Future.delayed(const Duration(seconds: 2)); // Simulate API call
+      final db = ref.read(appDatabaseProvider);
+      final backupService = BackupService(db);
+      final data = await backupService.exportAllData();
+      final metadata = await ref
+          .read(backupDataUseCaseProvider)
+          .execute(
+            houses: data['houses']!,
+            cycles: data['cycles']!,
+            readings: data['readings']!,
+          );
+      ref.invalidate(_backupMetadataProvider);
 
       if (mounted) {
-        setState(() {
-          _lastBackupTime = DateTime.now();
-          _isBackingUp = false;
-        });
-
+        setState(() => _isBackingUp = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Backup completed successfully!'),
+          SnackBar(
+            content: Text(
+              'Backup completed! ${metadata.housesCount} houses, ${metadata.cyclesCount} cycles, ${metadata.readingsCount} readings',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -242,7 +328,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isBackingUp = false);
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Backup failed: $e'),
@@ -254,7 +339,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _performRestore() async {
-    // Show confirmation dialog
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -280,15 +364,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() => _isRestoring = true);
 
     try {
-      // TODO: Implement Supabase restore
-      await Future.delayed(const Duration(seconds: 2)); // Simulate API call
+      final data = await ref.read(restoreDataUseCaseProvider).execute();
+      final db = ref.read(appDatabaseProvider);
+      final backupService = BackupService(db);
+      await backupService.importAllData(
+        houses: data['houses']!,
+        cycles: data['cycles']!,
+        readings: data['readings']!,
+      );
 
       if (mounted) {
-        setState(() {
-          _lastRestoreTime = DateTime.now();
-          _isRestoring = false;
-        });
-
+        setState(() => _isRestoring = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Data restored successfully!'),
@@ -299,7 +385,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isRestoring = false);
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Restore failed: $e'),
@@ -327,3 +412,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 }
+
+final _backupMetadataProvider = FutureProvider((ref) async {
+  final useCase = ref.watch(getBackupMetadataUseCaseProvider);
+  return await useCase.execute();
+});
