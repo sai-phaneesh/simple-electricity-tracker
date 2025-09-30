@@ -40,21 +40,30 @@ class MyApp extends ConsumerWidget {
       themeMode: themeState.mode,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6750A4),
-          brightness: Brightness.light,
-        ),
-        appBarTheme: AppBarTheme(
+        colorScheme:
+            ColorScheme.fromSeed(
+              seedColor: const Color(0xFF6750A4),
+              brightness: Brightness.light,
+            ).copyWith(
+              // Adjust surface colors for better contrast in light mode
+              surface: const Color(0xFFFEFBFF),
+              surfaceContainerLowest: const Color(0xFFFFFFFF),
+              surfaceContainerLow: const Color(0xFFF8F9FA),
+              surfaceContainer: const Color(0xFFF3F4F6),
+              surfaceContainerHigh: const Color(0xFFEDEEF0),
+              surfaceContainerHighest: const Color(0xFFE7E8EB),
+            ),
+        scaffoldBackgroundColor: const Color(0xFFFEFBFF),
+        appBarTheme: const AppBarTheme(
           centerTitle: false,
           elevation: 0,
           scrolledUnderElevation: 1,
-          backgroundColor: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF6750A4),
-            brightness: Brightness.light,
-          ).surface,
+          backgroundColor: Color(0xFFFEFBFF),
         ),
         cardTheme: CardThemeData(
           elevation: 0,
+          color: const Color(0xFFFFFFFF),
+          surfaceTintColor: const Color(0xFF6750A4),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -63,10 +72,7 @@ class MyApp extends ConsumerWidget {
           border: const OutlineInputBorder(),
           floatingLabelBehavior: FloatingLabelBehavior.always,
           filled: true,
-          fillColor: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF6750A4),
-            brightness: Brightness.light,
-          ).surfaceContainerHighest.withValues(alpha: 0.3),
+          fillColor: const Color(0xFFF3F4F6),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
