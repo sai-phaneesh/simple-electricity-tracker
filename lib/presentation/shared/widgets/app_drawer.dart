@@ -554,12 +554,8 @@ class _CreateHouseDialogState extends ConsumerState<CreateHouseDialog> {
                 .read(housesControllerProvider)
                 .createHouse(
                   name: nameController.text.trim(),
-                  address: addressController.text.trim().isEmpty
-                      ? null
-                      : addressController.text.trim(),
-                  meterNumber: meterNumberController.text.trim().isEmpty
-                      ? null
-                      : meterNumberController.text.trim(),
+                  address: addressController.text.trim(),
+                  meterNumber: meterNumberController.text.trim(),
                   defaultPricePerUnit: defaultPrice,
                 );
             if (context.mounted) Navigator.of(context).pop();

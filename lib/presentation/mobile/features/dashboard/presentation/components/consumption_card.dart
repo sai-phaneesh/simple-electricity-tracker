@@ -137,7 +137,7 @@ class ConsumptionCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    '${AppNumberFormatter.formatNumber(reading.unitsConsumed)} units',
+                    '${AppNumberFormatter.formatNumber(reading.unitsConsumed)} unit${reading.unitsConsumed == 1 ? '' : 's'}',
                     style: context.theme.textTheme.labelSmall?.copyWith(
                       color: context.theme.colorScheme.onSecondaryContainer,
                       fontWeight: FontWeight.w600,

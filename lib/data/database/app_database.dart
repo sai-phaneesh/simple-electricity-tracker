@@ -14,7 +14,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.fromExecutor(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => DatabaseMigrations.migrationStrategy;

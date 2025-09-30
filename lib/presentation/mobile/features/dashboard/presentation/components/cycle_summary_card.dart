@@ -103,17 +103,7 @@ class CycleSummaryCard extends ConsumerWidget {
                     style: context.theme.textTheme.bodySmall,
                   ),
                   const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined),
-                    onPressed: () {
-                      context.pushNamed(
-                        'edit-cycle',
-                        pathParameters: {'cycleId': cycle.id},
-                      );
-                    },
-                    tooltip: 'Edit cycle',
-                    iconSize: 20,
-                  ),
+                  _CycleMenuButton(cycleId: cycle.id, cycleName: cycle.name),
                 ],
               ),
               Wrap(
@@ -241,3 +231,114 @@ class _SummaryChip extends StatelessWidget {
     );
   }
 }
+
+class _CycleMenuButton extends ConsumerWidget {
+  const _CycleMenuButton({required this.cycleId, required this.cycleName});
+
+  final String cycleId;
+  final String cycleName;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return PopupMenuButton<_CycleAction>(
+      icon: Icon(
+        Icons.more_vert,
+        color: context.theme.colorScheme.onSurfaceVariant,
+      ),
+      padding: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onSelected: (action) async {
+        switch (action) {
+          case _CycleAction.edit:
+            context.pushNamed(
+              'edit-cycle',
+              pathParameters: {'cycleId': cycleId},
+            );
+            break;
+          case _CycleAction.delete:
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Delete Cycle?'),
+                content: Text(
+                  'Are you sure you want to delete "$cycleName"? This will also delete all associated readings. This action cannot be undone.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: context.theme.colorScheme.error,
+                    ),
+                    child: const Text('Delete'),
+                  ),
+                ],
+              ),
+            );
+
+            if (confirmed == true && context.mounted) {
+              try {
+                await ref.read(cyclesControllerProvider).deleteCycle(cycleId);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Cycle "$cycleName" deleted'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to delete cycle: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            }
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: _CycleAction.edit,
+          child: Row(
+            children: [
+              Icon(
+                Icons.edit_outlined,
+                size: 20,
+                color: context.theme.colorScheme.onSurface,
+              ),
+              const SizedBox(width: 12),
+              const Text('Edit'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: _CycleAction.delete,
+          child: Row(
+            children: [
+              Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: context.theme.colorScheme.error,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Delete',
+                style: TextStyle(color: context.theme.colorScheme.error),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+enum _CycleAction { edit, delete }

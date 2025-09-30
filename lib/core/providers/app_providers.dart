@@ -18,6 +18,8 @@ import 'package:electricity/data/repositories/houses_repository_impl.dart';
 import 'package:electricity/domain/repositories/cycles_repository.dart';
 import 'package:electricity/domain/repositories/electricity_readings_repository.dart';
 import 'package:electricity/domain/repositories/houses_repository.dart';
+import 'package:electricity/domain/usecases/sync_tracking_usecases.dart';
+import 'package:electricity/core/providers/sync_tracking_providers.dart';
 
 /// Core dependency providers
 final sharedPrefManagerProvider = Provider<SharedPrefManager>((ref) {
@@ -176,10 +178,15 @@ final selectedCycleProvider = Provider<AsyncValue<Cycle?>>((ref) {
 
 /// Controllers for CRUD operations
 class HousesController {
-  HousesController(this._ref, this._repository);
+  HousesController(
+    this._ref,
+    this._repository,
+    this._markItemsAsNeedingSyncUseCase,
+  );
 
   final Ref _ref;
   final HousesRepository _repository;
+  final MarkItemsAsNeedingSyncUseCase _markItemsAsNeedingSyncUseCase;
 
   Future<String> createHouse({
     required String name,
@@ -193,6 +200,10 @@ class HousesController {
       meterNumber: meterNumber,
       defaultPricePerUnit: defaultPricePerUnit,
     );
+
+    // Mark for sync
+    await _markItemsAsNeedingSyncUseCase.execute(houseIds: [id]);
+    _ref.invalidate(pendingBackupCountsProvider);
 
     _ref.read(selectedHouseIdProvider.notifier).setHouse(id);
     return id;
@@ -212,10 +223,19 @@ class HousesController {
       meterNumber: meterNumber,
       defaultPricePerUnit: defaultPricePerUnit,
     );
+
+    // Mark for sync
+    await _markItemsAsNeedingSyncUseCase.execute(houseIds: [id]);
+    _ref.invalidate(pendingBackupCountsProvider);
   }
 
   Future<void> deleteHouse(String id) async {
     await _repository.deleteHouse(id);
+
+    // Mark for sync
+    await _markItemsAsNeedingSyncUseCase.execute(houseIds: [id]);
+    _ref.invalidate(pendingBackupCountsProvider);
+
     final selectedId = _ref.read(selectedHouseIdProvider);
     if (selectedId == id) {
       _ref.read(selectedHouseIdProvider.notifier).setHouse(null);
@@ -224,10 +244,15 @@ class HousesController {
 }
 
 class CyclesController {
-  CyclesController(this._ref, this._repository);
+  CyclesController(
+    this._ref,
+    this._repository,
+    this._markItemsAsNeedingSyncUseCase,
+  );
 
   final Ref _ref;
   final CyclesRepository _repository;
+  final MarkItemsAsNeedingSyncUseCase _markItemsAsNeedingSyncUseCase;
 
   Future<String> createCycle({
     required String houseId,
@@ -251,6 +276,10 @@ class CyclesController {
       isActive: isActive,
       notes: notes,
     );
+
+    // Mark for sync
+    await _markItemsAsNeedingSyncUseCase.execute(cycleIds: [id]);
+    _ref.invalidate(pendingBackupCountsProvider);
 
     _ref.read(selectedCycleIdProvider.notifier).setCycle(id);
     return id;
@@ -278,10 +307,19 @@ class CyclesController {
       isActive: isActive,
       notes: notes,
     );
+
+    // Mark for sync
+    await _markItemsAsNeedingSyncUseCase.execute(cycleIds: [id]);
+    _ref.invalidate(pendingBackupCountsProvider);
   }
 
   Future<void> deleteCycle(String id) async {
     await _repository.deleteCycle(id);
+
+    // Mark for sync
+    await _markItemsAsNeedingSyncUseCase.execute(cycleIds: [id]);
+    _ref.invalidate(pendingBackupCountsProvider);
+
     final selectedId = _ref.read(selectedCycleIdProvider);
     if (selectedId == id) {
       _ref.read(selectedCycleIdProvider.notifier).clear();
@@ -290,9 +328,15 @@ class CyclesController {
 }
 
 class ElectricityReadingsController {
-  ElectricityReadingsController(this._repository);
+  ElectricityReadingsController(
+    this._ref,
+    this._repository,
+    this._markItemsAsNeedingSyncUseCase,
+  );
 
+  final Ref _ref;
   final ElectricityReadingsRepository _repository;
+  final MarkItemsAsNeedingSyncUseCase _markItemsAsNeedingSyncUseCase;
 
   Future<String> createReading({
     required String houseId,
@@ -302,8 +346,8 @@ class ElectricityReadingsController {
     required double unitsConsumed,
     required double totalCost,
     String? notes,
-  }) {
-    return _repository.createReading(
+  }) async {
+    final id = await _repository.createReading(
       houseId: houseId,
       cycleId: cycleId,
       date: date,
@@ -312,6 +356,12 @@ class ElectricityReadingsController {
       totalCost: totalCost,
       notes: notes,
     );
+
+    // Mark for sync
+    await _markItemsAsNeedingSyncUseCase.execute(readingIds: [id]);
+    _ref.invalidate(pendingBackupCountsProvider);
+
+    return id;
   }
 
   Future<void> updateReading({
@@ -321,8 +371,8 @@ class ElectricityReadingsController {
     double? unitsConsumed,
     double? totalCost,
     String? notes,
-  }) {
-    return _repository.updateReading(
+  }) async {
+    await _repository.updateReading(
       id: id,
       date: date,
       meterReading: meterReading,
@@ -330,25 +380,43 @@ class ElectricityReadingsController {
       totalCost: totalCost,
       notes: notes,
     );
+
+    // Mark for sync
+    await _markItemsAsNeedingSyncUseCase.execute(readingIds: [id]);
+    _ref.invalidate(pendingBackupCountsProvider);
   }
 
-  Future<void> deleteReading(String id) {
-    return _repository.deleteReading(id);
+  Future<void> deleteReading(String id) async {
+    await _repository.deleteReading(id);
+
+    // Mark for sync
+    await _markItemsAsNeedingSyncUseCase.execute(readingIds: [id]);
+    _ref.invalidate(pendingBackupCountsProvider);
   }
 }
 
 final housesControllerProvider = Provider<HousesController>((ref) {
-  return HousesController(ref, ref.watch(housesRepositoryProvider));
+  return HousesController(
+    ref,
+    ref.watch(housesRepositoryProvider),
+    ref.watch(markItemsAsNeedingSyncUseCaseProvider),
+  );
 });
 
 final cyclesControllerProvider = Provider<CyclesController>((ref) {
-  return CyclesController(ref, ref.watch(cyclesRepositoryProvider));
+  return CyclesController(
+    ref,
+    ref.watch(cyclesRepositoryProvider),
+    ref.watch(markItemsAsNeedingSyncUseCaseProvider),
+  );
 });
 
 final electricityReadingsControllerProvider =
     Provider<ElectricityReadingsController>((ref) {
       return ElectricityReadingsController(
+        ref,
         ref.watch(electricityReadingsRepositoryProvider),
+        ref.watch(markItemsAsNeedingSyncUseCaseProvider),
       );
     });
 

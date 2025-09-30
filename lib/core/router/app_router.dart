@@ -36,7 +36,7 @@ class DashboardShell extends ConsumerWidget {
         title: const Text('Electricity Tracker'),
         scrolledUnderElevation: 0,
       ),
-      body: child,
+      body: SafeArea(child: child),
       floatingActionButton: selectedHouse == null || selectedCycle == null
           ? null
           : FloatingActionButton(

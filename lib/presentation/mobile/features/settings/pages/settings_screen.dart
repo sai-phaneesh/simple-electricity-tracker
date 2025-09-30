@@ -408,7 +408,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
-    final difference = now.difference(dateTime);
+    final difference = -now.difference(dateTime);
 
     if (difference.inMinutes < 1) {
       return 'Just now';

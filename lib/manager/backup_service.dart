@@ -22,7 +22,11 @@ class BackupService {
               'id': h.id,
               'name': h.name,
               'address': h.address,
+              'meter_number': h.meterNumber,
+              'default_price_per_unit': h.defaultPricePerUnit,
+              'notes': h.notes,
               'created_at': h.createdAt.toIso8601String(),
+              'updated_at': h.updatedAt.toIso8601String(),
             },
           )
           .toList(),
@@ -38,7 +42,9 @@ class BackupService {
               'price_per_unit': c.pricePerUnit,
               'initial_meter_reading': c.initialMeterReading,
               'is_active': c.isActive,
+              'notes': c.notes,
               'created_at': c.createdAt.toIso8601String(),
+              'updated_at': c.updatedAt.toIso8601String(),
             },
           )
           .toList(),
@@ -52,7 +58,9 @@ class BackupService {
               'meter_reading': r.meterReading,
               'units_consumed': r.unitsConsumed,
               'total_cost': r.totalCost,
+              'notes': r.notes,
               'created_at': r.createdAt.toIso8601String(),
+              'updated_at': r.updatedAt.toIso8601String(),
             },
           )
           .toList(),
@@ -79,8 +87,34 @@ class BackupService {
               HousesTableCompanion(
                 id: Value(house['id'] as String),
                 name: Value(house['name'] as String),
-                address: Value(house['address'] as String),
+                address: house['address'] != null
+                    ? Value(house['address'] as String?)
+                    : const Value(null),
+                meterNumber: house['meter_number'] != null
+                    ? Value(house['meter_number'] as String?)
+                    : const Value(null),
+                defaultPricePerUnit: Value(
+                  house['default_price_per_unit'] != null
+                      ? (house['default_price_per_unit'] is int
+                            ? (house['default_price_per_unit'] as int)
+                                  .toDouble()
+                            : house['default_price_per_unit'] as double)
+                      : 0.0, // Default value if missing
+                ),
+                notes: house['notes'] != null
+                    ? Value(house['notes'] as String?)
+                    : const Value(null),
                 createdAt: Value(DateTime.parse(house['created_at'] as String)),
+                updatedAt: Value(
+                  house['updated_at'] != null
+                      ? DateTime.parse(house['updated_at'] as String)
+                      : DateTime.now(),
+                ),
+                // Set sync fields to indicate restored data is already synced
+                isDeleted: const Value(false),
+                needsSync: const Value(false),
+                lastSyncAt: Value(DateTime.now()),
+                syncStatus: const Value('synced'),
               ),
               mode: InsertMode.replace,
             );
@@ -98,12 +132,31 @@ class BackupService {
                 startDate: Value(DateTime.parse(cycle['start_date'] as String)),
                 endDate: Value(DateTime.parse(cycle['end_date'] as String)),
                 maxUnits: Value(cycle['max_units'] as int),
-                pricePerUnit: Value(cycle['price_per_unit'] as double),
+                pricePerUnit: Value(
+                  cycle['price_per_unit'] is int
+                      ? (cycle['price_per_unit'] as int).toDouble()
+                      : cycle['price_per_unit'] as double,
+                ),
                 initialMeterReading: Value(
-                  cycle['initial_meter_reading'] as double,
+                  cycle['initial_meter_reading'] is int
+                      ? (cycle['initial_meter_reading'] as int).toDouble()
+                      : cycle['initial_meter_reading'] as double,
                 ),
                 isActive: Value(cycle['is_active'] as bool),
+                notes: cycle['notes'] != null
+                    ? Value(cycle['notes'] as String?)
+                    : const Value(null),
                 createdAt: Value(DateTime.parse(cycle['created_at'] as String)),
+                updatedAt: Value(
+                  cycle['updated_at'] != null
+                      ? DateTime.parse(cycle['updated_at'] as String)
+                      : DateTime.now(),
+                ),
+                // Set sync fields
+                isDeleted: const Value(false),
+                needsSync: const Value(false),
+                lastSyncAt: Value(DateTime.now()),
+                syncStatus: const Value('synced'),
               ),
               mode: InsertMode.replace,
             );
@@ -119,12 +172,37 @@ class BackupService {
                 houseId: Value(reading['house_id'] as String),
                 cycleId: Value(reading['cycle_id'] as String),
                 date: Value(DateTime.parse(reading['date'] as String)),
-                meterReading: Value(reading['meter_reading'] as double),
-                unitsConsumed: Value(reading['units_consumed'] as double),
-                totalCost: Value(reading['total_cost'] as double),
+                meterReading: Value(
+                  reading['meter_reading'] is int
+                      ? (reading['meter_reading'] as int).toDouble()
+                      : reading['meter_reading'] as double,
+                ),
+                unitsConsumed: Value(
+                  reading['units_consumed'] is int
+                      ? (reading['units_consumed'] as int).toDouble()
+                      : reading['units_consumed'] as double,
+                ),
+                totalCost: Value(
+                  reading['total_cost'] is int
+                      ? (reading['total_cost'] as int).toDouble()
+                      : reading['total_cost'] as double,
+                ),
+                notes: reading['notes'] != null
+                    ? Value(reading['notes'] as String?)
+                    : const Value(null),
                 createdAt: Value(
                   DateTime.parse(reading['created_at'] as String),
                 ),
+                updatedAt: Value(
+                  reading['updated_at'] != null
+                      ? DateTime.parse(reading['updated_at'] as String)
+                      : DateTime.now(),
+                ),
+                // Set sync fields
+                isDeleted: const Value(false),
+                needsSync: const Value(false),
+                lastSyncAt: Value(DateTime.now()),
+                syncStatus: const Value('synced'),
               ),
               mode: InsertMode.replace,
             );

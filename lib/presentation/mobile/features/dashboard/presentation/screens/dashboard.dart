@@ -75,12 +75,44 @@ class _DashboardState extends ConsumerState<Dashboard> {
                 );
               }
 
-              return const Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  CycleSummaryCard(),
-                  Expanded(child: ConsumptionsListView()),
-                ],
+              // Use OrientationBuilder to adapt layout for landscape
+              return OrientationBuilder(
+                builder: (context, orientation) {
+                  if (orientation == Orientation.landscape) {
+                    // Landscape: Side-by-side layout
+                    return const Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Left: Cycle Summary (scrollable if needed)
+                              Expanded(
+                                flex: 2,
+                                child: SingleChildScrollView(
+                                  child: CycleSummaryCard(),
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              // Right: Consumptions List
+                              Expanded(flex: 3, child: ConsumptionsListView()),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  } else {
+                    // Portrait: Stacked layout (original)
+                    return const Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        CycleSummaryCard(),
+                        Expanded(child: ConsumptionsListView()),
+                      ],
+                    );
+                  }
+                },
               );
             },
           ),
