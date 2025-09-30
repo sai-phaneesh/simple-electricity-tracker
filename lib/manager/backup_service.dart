@@ -1,11 +1,13 @@
 import 'package:drift/drift.dart';
 import 'package:electricity/data/database/database.dart';
+import 'package:electricity/domain/repositories/sync_tracking_repository.dart';
 
 /// Service for handling local database operations related to backup/restore
 class BackupService {
   final AppDatabase _db;
+  final SyncTrackingRepository _syncRepository;
 
-  BackupService(this._db);
+  BackupService(this._db, this._syncRepository);
 
   /// Export all data for backup
   Future<Map<String, List<Map<String, dynamic>>>> exportAllData() async {
@@ -128,5 +130,23 @@ class BackupService {
             );
       }
     });
+  }
+
+  /// Mark all items as synced after successful backup
+  Future<void> markAllAsSynced() async {
+    await _syncRepository.markAllItemsAsSynced();
+  }
+
+  /// Mark items as needing sync (called when data is modified)
+  Future<void> markAsNeedingSync({
+    List<String>? houseIds,
+    List<String>? cycleIds,
+    List<String>? readingIds,
+  }) async {
+    await _syncRepository.markItemsAsNeedingSync(
+      houseIds: houseIds,
+      cycleIds: cycleIds,
+      readingIds: readingIds,
+    );
   }
 }
