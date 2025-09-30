@@ -1,3 +1,4 @@
+import 'package:electricity/presentation/shared/widgets/theme_handler_widgets.dart';
 import 'package:flutter/material.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -7,7 +8,7 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: const Center(child: Text('Settings Screen')),
+      body: SafeArea(child: Column(children: [const ThemeHandlerListTile()])),
     );
   }
 }

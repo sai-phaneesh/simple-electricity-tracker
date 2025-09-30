@@ -15,7 +15,7 @@ abstract class AppRouteNames {
   static const editCycle = 'edit-cycle';
   static const createConsumption = '/create-consumption';
   static const about = 'about';
-  static const settings = 'settings';
+  static const settings = '/settings';
 }
 
 class DashboardShell extends ConsumerWidget {

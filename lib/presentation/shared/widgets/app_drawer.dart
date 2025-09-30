@@ -208,7 +208,7 @@ class DrawerActions extends ConsumerWidget {
           ListTile(
             onTap: () {
               context.pop();
-              context.pushNamed(AppRouteNames.settings);
+              context.push(AppRouteNames.settings);
             },
             title: const Text('Settings'),
             trailing: const Icon(Icons.settings_outlined),
@@ -221,7 +221,7 @@ class DrawerActions extends ConsumerWidget {
           //   title: const Text('Create Cycle'),
           //   trailing: const Icon(Icons.add_circle_outline),
           // ),
-          const ThemeHandlerListTile(),
+          // const ThemeHandlerListTile(),
           const AboutTile(),
         ],
       ),
