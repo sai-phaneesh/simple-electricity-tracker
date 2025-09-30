@@ -1,6 +1,7 @@
 import 'package:electricity/core/providers/app_providers.dart';
 import 'package:electricity/core/router/app_router.dart';
 import 'package:electricity/core/utils/extensions/strings.dart';
+import 'package:electricity/data/database/database.dart';
 import 'package:electricity/presentation/shared/widgets/delete_confirmation_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -99,25 +100,240 @@ class HouseSelectorList extends ConsumerWidget {
                   house.meterNumber,
                 ].where((e) => (e ?? '').isNotEmpty).join(' • '),
               ),
-              trailing: isSelected ? const Icon(Icons.check) : null,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isSelected) Icon(Icons.check),
+                  _HouseOptionsButton(
+                    house: house,
+                    onEdit: () async {
+                      await _showEditHouseDialog(context, ref, house);
+                    },
+                    onDelete: () async {
+                      final shouldDelete = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => const DeleteConfirmationModal(),
+                      );
+                      if (shouldDelete != true || !context.mounted) return;
+
+                      await ref
+                          .read(housesControllerProvider)
+                          .deleteHouse(house.id);
+                    },
+                  ),
+                ],
+              ),
               selected: isSelected,
               onTap: () {
                 ref.read(selectedHouseIdProvider.notifier).setHouse(house.id);
                 ref.read(selectedCycleIdProvider.notifier).clear();
               },
-              onLongPress: () async {
-                final shouldDelete = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => const DeleteConfirmationModal(),
-                );
-                if (shouldDelete != true || !context.mounted) return;
-
-                await ref.read(housesControllerProvider).deleteHouse(house.id);
-              },
             );
           },
         );
       },
+    );
+  }
+}
+
+class _HouseOptionsButton extends StatelessWidget {
+  const _HouseOptionsButton({
+    required this.house,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final House house;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<_HouseAction>(
+      icon: Icon(
+        Icons.more_vert,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      padding: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onSelected: (action) {
+        switch (action) {
+          case _HouseAction.edit:
+            onEdit();
+            break;
+          case _HouseAction.delete:
+            onDelete();
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: _HouseAction.edit,
+          child: Row(
+            children: [
+              Icon(
+                Icons.edit_outlined,
+                size: 20,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              const SizedBox(width: 12),
+              const Text('Edit'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: _HouseAction.delete,
+          child: Row(
+            children: [
+              Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Delete',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+enum _HouseAction { edit, delete }
+
+Future<void> _showEditHouseDialog(
+  BuildContext context,
+  WidgetRef ref,
+  House house,
+) async {
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return EditHouseDialog(house: house);
+    },
+  );
+}
+
+class EditHouseDialog extends ConsumerStatefulWidget {
+  const EditHouseDialog({super.key, required this.house});
+
+  final House house;
+
+  @override
+  ConsumerState<EditHouseDialog> createState() => _EditHouseDialogState();
+}
+
+class _EditHouseDialogState extends ConsumerState<EditHouseDialog> {
+  late final TextEditingController nameController;
+  late final TextEditingController defaultPriceController;
+  late final TextEditingController addressController;
+  late final TextEditingController meterNumberController;
+  final formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+
+    final house = widget.house;
+    nameController = TextEditingController(text: house.name);
+    defaultPriceController = TextEditingController(
+      text: house.defaultPricePerUnit.toString(),
+    );
+    addressController = TextEditingController(text: house.address ?? '');
+    meterNumberController = TextEditingController(
+      text: house.meterNumber ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    defaultPriceController.dispose();
+    addressController.dispose();
+    meterNumberController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit House'),
+      content: Form(
+        key: formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Name is required'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: addressController,
+                decoration: const InputDecoration(labelText: 'Address'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: meterNumberController,
+                decoration: const InputDecoration(labelText: 'Meter number'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: defaultPriceController,
+                decoration: const InputDecoration(
+                  labelText: 'Default price per unit',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Price per unit is required';
+                  }
+                  return double.tryParse(value.trim()) == null
+                      ? 'Enter a valid number'
+                      : null;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () async {
+            if (!(formKey.currentState?.validate() ?? false)) {
+              return;
+            }
+            final defaultPrice = double.parse(
+              defaultPriceController.text.trim(),
+            );
+            await ref
+                .read(housesControllerProvider)
+                .updateHouse(
+                  id: widget.house.id,
+                  name: nameController.text.trim(),
+                  address: addressController.text.trim(),
+                  meterNumber: meterNumberController.text.trim(),
+                  defaultPricePerUnit: defaultPrice,
+                );
+            if (context.mounted) Navigator.of(context).pop();
+          },
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }
@@ -231,102 +447,127 @@ class DrawerActions extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
-    final nameController = TextEditingController();
-    final defaultPriceController = TextEditingController();
-    final addressController = TextEditingController();
-    final meterNumberController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Create House'),
-          content: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: nameController,
-                    decoration: const InputDecoration(labelText: 'Name'),
-                    validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Name is required'
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: addressController,
-                    decoration: const InputDecoration(labelText: 'Address'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: meterNumberController,
-                    decoration: const InputDecoration(
-                      labelText: 'Meter number',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: defaultPriceController,
-                    decoration: const InputDecoration(
-                      labelText: 'Default price per unit',
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Price per unit is required';
-                      }
-                      return double.tryParse(value.trim()) == null
-                          ? 'Enter a valid number'
-                          : null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                if (!(formKey.currentState?.validate() ?? false)) {
-                  return;
-                }
-                final defaultPrice = double.parse(
-                  defaultPriceController.text.trim(),
-                );
-                await ref
-                    .read(housesControllerProvider)
-                    .createHouse(
-                      name: nameController.text.trim(),
-                      address: addressController.text.trim().isEmpty
-                          ? null
-                          : addressController.text.trim(),
-                      meterNumber: meterNumberController.text.trim().isEmpty
-                          ? null
-                          : meterNumberController.text.trim(),
-                      defaultPricePerUnit: defaultPrice,
-                    );
-                if (context.mounted) Navigator.of(dialogContext).pop();
-              },
-              child: const Text('Create'),
-            ),
-          ],
-        );
+        return const CreateHouseDialog();
       },
     );
+  }
+}
 
+class CreateHouseDialog extends ConsumerStatefulWidget {
+  const CreateHouseDialog({super.key});
+
+  @override
+  ConsumerState<CreateHouseDialog> createState() => _CreateHouseDialogState();
+}
+
+class _CreateHouseDialogState extends ConsumerState<CreateHouseDialog> {
+  late final TextEditingController nameController;
+  late final TextEditingController defaultPriceController;
+  late final TextEditingController addressController;
+  late final TextEditingController meterNumberController;
+  final formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    nameController = TextEditingController();
+    defaultPriceController = TextEditingController();
+    addressController = TextEditingController();
+    meterNumberController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
     nameController.dispose();
     defaultPriceController.dispose();
     addressController.dispose();
     meterNumberController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Create House'),
+      content: Form(
+        key: formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Name is required'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: addressController,
+                decoration: const InputDecoration(labelText: 'Address'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: meterNumberController,
+                decoration: const InputDecoration(labelText: 'Meter number'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: defaultPriceController,
+                decoration: const InputDecoration(
+                  labelText: 'Default price per unit',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Price per unit is required';
+                  }
+                  return double.tryParse(value.trim()) == null
+                      ? 'Enter a valid number'
+                      : null;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () async {
+            if (!(formKey.currentState?.validate() ?? false)) {
+              return;
+            }
+            final defaultPrice = double.parse(
+              defaultPriceController.text.trim(),
+            );
+            await ref
+                .read(housesControllerProvider)
+                .createHouse(
+                  name: nameController.text.trim(),
+                  address: addressController.text.trim().isEmpty
+                      ? null
+                      : addressController.text.trim(),
+                  meterNumber: meterNumberController.text.trim().isEmpty
+                      ? null
+                      : meterNumberController.text.trim(),
+                  defaultPricePerUnit: defaultPrice,
+                );
+            if (context.mounted) Navigator.of(context).pop();
+          },
+          child: const Text('Create'),
+        ),
+      ],
+    );
   }
 }
 
