@@ -17,7 +17,8 @@ class ThemeHandlerListTile extends ConsumerWidget {
     final themeState = ref.watch(themeNotifierProvider);
     return ListTile(
       onTap: ref.read(themeNotifierProvider.notifier).toggleThemeMode,
-      title: Text(themeState.mode.name.toCapitalized()),
+      // title: Text(themeState.mode.name.toCapitalized()),
+      title: Text("Theme (${themeState.mode.name.toCapitalized()})"),
       trailing: Icon(_themeModeIconMap[themeState.mode]!),
     );
   }

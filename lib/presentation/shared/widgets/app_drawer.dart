@@ -222,7 +222,7 @@ class DrawerActions extends ConsumerWidget {
           //   trailing: const Icon(Icons.add_circle_outline),
           // ),
           // const ThemeHandlerListTile(),
-          const AboutTile(),
+          // const AboutTile(),
         ],
       ),
     );
