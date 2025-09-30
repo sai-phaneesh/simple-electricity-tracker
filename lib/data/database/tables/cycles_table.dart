@@ -35,24 +35,5 @@ class CyclesTable extends Table {
 
   // Indexes for performance optimization
   @override
-  List<String> get customConstraints => [
-    // Index for house-based queries (very common)
-    'CREATE INDEX IF NOT EXISTS cycles_house_id_idx ON cycles (house_id)',
-
-    // Index for timestamp-based queries
-    'CREATE INDEX IF NOT EXISTS cycles_updated_at_idx ON cycles (updated_at DESC)',
-    'CREATE INDEX IF NOT EXISTS cycles_start_date_idx ON cycles (start_date DESC)',
-
-    // Index for active cycle queries per house
-    'CREATE INDEX IF NOT EXISTS cycles_active_idx ON cycles (house_id, is_active, is_deleted)',
-
-    // Index for sync status queries
-    'CREATE INDEX IF NOT EXISTS cycles_sync_status_idx ON cycles (needs_sync, sync_status)',
-    'CREATE INDEX IF NOT EXISTS cycles_deleted_idx ON cycles (is_deleted)',
-
-    // Composite indexes for common query patterns
-    'CREATE INDEX IF NOT EXISTS cycles_house_active_idx ON cycles (house_id, is_deleted, is_active, start_date DESC)',
-    'CREATE INDEX IF NOT EXISTS cycles_house_sync_idx ON cycles (house_id, needs_sync, updated_at DESC)',
-    'CREATE INDEX IF NOT EXISTS cycles_date_range_idx ON cycles (start_date, end_date, is_deleted)',
-  ];
+  List<String> get customConstraints => const <String>[];
 }

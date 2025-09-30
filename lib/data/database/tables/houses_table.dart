@@ -32,16 +32,5 @@ class HousesTable extends Table {
 
   // Indexes for performance optimization
   @override
-  List<String> get customConstraints => [
-    // Index for timestamp-based queries (most common)
-    'CREATE INDEX IF NOT EXISTS houses_updated_at_idx ON houses (updated_at DESC)',
-    'CREATE INDEX IF NOT EXISTS houses_created_at_idx ON houses (created_at)',
-
-    // Index for sync status queries
-    'CREATE INDEX IF NOT EXISTS houses_sync_status_idx ON houses (needs_sync, sync_status)',
-    'CREATE INDEX IF NOT EXISTS houses_deleted_idx ON houses (is_deleted)',
-
-    // Composite index for active houses needing sync
-    'CREATE INDEX IF NOT EXISTS houses_active_sync_idx ON houses (is_deleted, needs_sync, updated_at DESC)',
-  ];
+  List<String> get customConstraints => const <String>[];
 }
