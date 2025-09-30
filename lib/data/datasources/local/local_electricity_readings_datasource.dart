@@ -42,7 +42,7 @@ class LocalElectricityReadingsDataSource
           ..where(
             (tbl) => tbl.cycleId.equals(cycleId) & tbl.isDeleted.equals(false),
           )
-          ..orderBy([(tbl) => OrderingTerm.asc(tbl.date)]))
+          ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)]))
         .watch();
   }
 

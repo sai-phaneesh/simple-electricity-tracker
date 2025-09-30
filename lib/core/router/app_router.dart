@@ -1,4 +1,5 @@
 import 'package:electricity/core/providers/app_providers.dart';
+import 'package:electricity/data/database/database.dart';
 import 'package:electricity/presentation/mobile/features/consumptions/presentation/create_consumption_screen.dart';
 import 'package:electricity/presentation/mobile/features/cycles/presentation/screens/create_cycle_screen.dart';
 import 'package:electricity/presentation/mobile/features/dashboard/presentation/screens/dashboard.dart';
@@ -12,7 +13,7 @@ abstract class AppRouteNames {
   static const dashboard = 'dashboard';
   static const createCycle = 'create-cycle';
   static const editCycle = 'edit-cycle';
-  static const createConsumption = 'create-consumption';
+  static const createConsumption = '/create-consumption';
   static const about = 'about';
   static const settings = 'settings';
 }
@@ -40,7 +41,7 @@ class DashboardShell extends ConsumerWidget {
           ? null
           : FloatingActionButton(
               onPressed: () {
-                context.pushNamed(AppRouteNames.createConsumption);
+                context.push(AppRouteNames.createConsumption);
               },
               tooltip: 'Add consumption',
               child: const Icon(Icons.add),
@@ -79,7 +80,10 @@ GoRouter createAppRouter() {
       GoRoute(
         path: '/create-consumption',
         name: AppRouteNames.createConsumption,
-        builder: (context, state) => const CreateConsumptionScreen(),
+        builder: (context, state) {
+          final reading = state.extra as ElectricityReading?;
+          return CreateConsumptionScreen(reading: reading);
+        },
       ),
       GoRoute(
         path: '/about',

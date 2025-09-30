@@ -45,6 +45,38 @@ class CycleSummaryCard extends ConsumerWidget {
         final durationDays =
             cycle.endDate.difference(cycle.startDate).inDays + 1;
 
+        // Calculate daily average
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final cycleStart = DateTime(
+          cycle.startDate.year,
+          cycle.startDate.month,
+          cycle.startDate.day,
+        );
+        final cycleEnd = DateTime(
+          cycle.endDate.year,
+          cycle.endDate.month,
+          cycle.endDate.day,
+        );
+
+        final daysPassed = today.isBefore(cycleStart)
+            ? 0
+            : (today.isAfter(cycleEnd)
+                  ? durationDays
+                  : today.difference(cycleStart).inDays + 1);
+        final dailyAverage = daysPassed > 0 ? totalUnits / daysPassed : 0.0;
+        final remainingUnits = cycle.maxUnits - totalUnits;
+
+        // Calculate days remaining (inclusive of today and end date)
+        final daysRemaining = today.isAfter(cycleEnd)
+            ? 0
+            : (today.isBefore(cycleStart)
+                  ? durationDays
+                  : cycleEnd.difference(today).inDays + 1);
+
+        final dailyLimit = daysRemaining > 0
+            ? remainingUnits / daysRemaining
+            : 0.0;
         return Container(
           margin: const EdgeInsets.all(10),
           padding: const EdgeInsets.all(15),
@@ -90,7 +122,20 @@ class CycleSummaryCard extends ConsumerWidget {
                 children: [
                   _SummaryChip(
                     label: 'Units',
-                    value: AppNumberFormatter.formatNumber(totalUnits),
+                    value:
+                        '${AppNumberFormatter.formatNumber(totalUnits)}/${AppNumberFormatter.formatUnits(cycle.maxUnits)}',
+                    isHighlighted: totalUnits > cycle.maxUnits,
+                  ),
+                  _SummaryChip(
+                    label: 'Daily Avg',
+                    value:
+                        '${AppNumberFormatter.formatNumber(dailyAverage)} units',
+                  ),
+                  _SummaryChip(
+                    label: 'Daily Limit',
+                    value:
+                        '${AppNumberFormatter.formatNumber(dailyLimit)} units',
+                    isWarning: dailyLimit < dailyAverage && daysRemaining > 0,
                   ),
                   _SummaryChip(
                     label: 'Cost',
@@ -108,10 +153,6 @@ class CycleSummaryCard extends ConsumerWidget {
                       cycle.initialMeterReading,
                     ),
                   ),
-                  _SummaryChip(
-                    label: 'Max units',
-                    value: AppNumberFormatter.formatUnits(cycle.maxUnits),
-                  ),
                 ],
               ),
               Row(
@@ -120,6 +161,12 @@ class CycleSummaryCard extends ConsumerWidget {
                   Text(
                     _dateFormatter.format(cycle.startDate),
                     style: context.theme.textTheme.bodyMedium,
+                  ),
+                  Text(
+                    _dateFormatter.format(now),
+                    style: context.theme.textTheme.bodyMedium?.copyWith(
+                      color: context.theme.colorScheme.primary,
+                    ),
                   ),
                   Text(
                     _dateFormatter.format(cycle.endDate),
@@ -136,27 +183,59 @@ class CycleSummaryCard extends ConsumerWidget {
 }
 
 class _SummaryChip extends StatelessWidget {
-  const _SummaryChip({required this.label, required this.value});
+  const _SummaryChip({
+    required this.label,
+    required this.value,
+    this.isHighlighted = false,
+    this.isWarning = false,
+  });
 
   final String label;
   final String value;
+  final bool isHighlighted;
+  final bool isWarning;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // Determine background and text color based on state
+    Color backgroundColor;
+    Color? textColor;
+
+    if (isHighlighted) {
+      backgroundColor = theme.colorScheme.error.withValues(alpha: 0.12);
+      textColor = theme.colorScheme.error;
+    } else if (isWarning) {
+      backgroundColor = theme.colorScheme.tertiary.withValues(alpha: 0.12);
+      textColor = theme.colorScheme.tertiary;
+    } else {
+      backgroundColor = theme.colorScheme.primary.withValues(alpha: 0.08);
+      textColor = null;
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withValues(alpha: 0.08),
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: theme.textTheme.labelSmall),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(color: textColor),
+          ),
           const SizedBox(height: 4),
-          Text(value, style: theme.textTheme.titleSmall),
+          Text(
+            value,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: textColor,
+              fontWeight: isHighlighted || isWarning ? FontWeight.bold : null,
+            ),
+          ),
         ],
       ),
     );

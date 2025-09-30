@@ -1,16 +1,18 @@
-import 'package:collection/collection.dart';
 import 'package:electricity/core/providers/app_providers.dart';
 import 'package:electricity/core/utils/extensions/toast.dart';
 import 'package:electricity/core/utils/formatters/meter_reading_input_formatter.dart';
 import 'package:electricity/core/utils/formatters/number_formatter.dart';
 import 'package:electricity/core/utils/helpers/focus_remove_wrapper.dart';
+import 'package:electricity/data/database/database.dart';
 import 'package:electricity/presentation/shared/widgets/actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 class CreateConsumptionScreen extends ConsumerStatefulWidget {
-  const CreateConsumptionScreen({super.key});
+  const CreateConsumptionScreen({this.reading, super.key});
+
+  final ElectricityReading? reading;
 
   @override
   ConsumerState<CreateConsumptionScreen> createState() =>
@@ -28,6 +30,11 @@ class _CreateConsumptionScreenState
   @override
   void initState() {
     super.initState();
+
+    // Pre-fill form if editing
+    if (widget.reading != null) {
+      _meterReadingController.text = widget.reading!.meterReading.toString();
+    }
   }
 
   Future<void> _showMessage(
@@ -35,7 +42,13 @@ class _CreateConsumptionScreenState
     FlushbarColor background = FlushbarColor.info,
   }) async {
     if (!context.mounted) return;
-    await context.showFlushbar(message, backgroundColor: background);
+
+    // Schedule the flushbar to show after the current frame completes
+    // This prevents navigation errors during build phase
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      context.showFlushbar(message, backgroundColor: background);
+    });
   }
 
   @override
@@ -48,14 +61,18 @@ class _CreateConsumptionScreenState
   Widget build(BuildContext context) {
     final cycleAsync = ref.watch(selectedCycleProvider);
     final readingsAsync = ref.watch(readingsForSelectedCycleStreamProvider);
-    final latestReading = readingsAsync.maybeWhen(
-      data: (readings) => readings.sortedBy((r) => r.date).lastOrNull,
-      orElse: () => null,
+    final sortedReadings = readingsAsync.maybeWhen(
+      data: (readings) => readings.reversed.toList(), // Already sorted by date
+      orElse: () => <ElectricityReading>[],
     );
 
     return FocusRemoveWrapper(
       child: Scaffold(
-        appBar: AppBar(title: const Text('Create Consumption')),
+        appBar: AppBar(
+          title: Text(
+            widget.reading != null ? 'Edit Consumption' : 'Create Consumption',
+          ),
+        ),
         body: cycleAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stackTrace) =>
@@ -73,8 +90,52 @@ class _CreateConsumptionScreenState
               );
             }
 
-            final previousReading =
-                latestReading?.meterReading ?? cycle.initialMeterReading;
+            final isEditing = widget.reading != null;
+            final currentReadingIndex = isEditing
+                ? sortedReadings.indexWhere(
+                    (reading) => reading.id == widget.reading!.id,
+                  )
+                : -1;
+
+            double previousReadingValue;
+            if (isEditing && currentReadingIndex > 0) {
+              // When editing, use the reading immediately before this one
+              previousReadingValue =
+                  sortedReadings[currentReadingIndex - 1].meterReading;
+            } else if (isEditing && currentReadingIndex == 0) {
+              // First reading in the list, use initial meter reading
+              previousReadingValue = cycle.initialMeterReading;
+            } else {
+              // Creating new reading, use the latest reading or initial
+              previousReadingValue = sortedReadings.isNotEmpty
+                  ? sortedReadings.last.meterReading
+                  : cycle.initialMeterReading;
+            }
+
+            final nextReadingValue = (isEditing && currentReadingIndex >= 0)
+                ? (currentReadingIndex < sortedReadings.length - 1
+                      ? sortedReadings[currentReadingIndex + 1].meterReading
+                      : null)
+                : null;
+
+            final previousReadingLabel = isEditing
+                ? 'Previous Reading'
+                : (sortedReadings.isNotEmpty
+                      ? 'Latest Reading'
+                      : 'Initial Reading');
+
+            final formattedPreviousReading =
+                AppNumberFormatter.formatMeterReading(previousReadingValue);
+            final formattedNextReading = nextReadingValue != null
+                ? AppNumberFormatter.formatMeterReading(nextReadingValue)
+                : null;
+            final nextReadingDisplay = formattedNextReading ?? '';
+            final rangeHintText = nextReadingValue != null
+                ? 'Must be between $formattedPreviousReading and $nextReadingDisplay'
+                : 'Must be greater than $formattedPreviousReading';
+            final rangeHelperText = nextReadingValue != null
+                ? 'Enter a value between $formattedPreviousReading and $nextReadingDisplay'
+                : 'Enter a value greater than $formattedPreviousReading';
 
             return SafeArea(
               child: Form(
@@ -140,14 +201,19 @@ class _CreateConsumptionScreenState
                             const Divider(height: 24),
                             _buildInfoRow(
                               context,
-                              latestReading != null
-                                  ? 'Latest Reading'
-                                  : 'Initial Reading',
-                              AppNumberFormatter.formatMeterReading(
-                                previousReading,
-                              ),
+                              previousReadingLabel,
+                              formattedPreviousReading,
                               isHighlighted: true,
                             ),
+                            if (nextReadingValue != null) ...[
+                              const SizedBox(height: 8),
+                              _buildInfoRow(
+                                context,
+                                'Next Reading',
+                                formattedNextReading!,
+                                isHighlighted: true,
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -159,8 +225,10 @@ class _CreateConsumptionScreenState
                         onChanged: (value) {
                           final inputValue = double.tryParse(value.trim());
                           if (inputValue != null &&
-                              inputValue > previousReading) {
-                            final units = inputValue - previousReading;
+                              inputValue > previousReadingValue &&
+                              (nextReadingValue == null ||
+                                  inputValue < nextReadingValue)) {
+                            final units = inputValue - previousReadingValue;
                             final cost = units * cycle.pricePerUnit;
                             setState(() {
                               _previewUnits = AppNumberFormatter.formatNumber(
@@ -179,11 +247,10 @@ class _CreateConsumptionScreenState
                         },
                         decoration: InputDecoration(
                           labelText: 'New Meter Reading',
-                          hintText: 'Must be greater than $previousReading',
+                          hintText: rangeHintText,
                           border: const OutlineInputBorder(),
                           floatingLabelBehavior: FloatingLabelBehavior.always,
-                          helperText:
-                              'Enter a value greater than $previousReading',
+                          helperText: rangeHelperText,
                           helperMaxLines: 2,
                         ),
                         inputFormatters: const [
@@ -203,8 +270,13 @@ class _CreateConsumptionScreenState
                             return 'Please enter a valid number';
                           }
 
-                          if (reading <= previousReading) {
-                            return 'Must be greater than $previousReading';
+                          if (reading <= previousReadingValue) {
+                            return 'Must be greater than $formattedPreviousReading';
+                          }
+
+                          if (nextReadingValue != null &&
+                              reading >= nextReadingValue) {
+                            return 'Must be less than $nextReadingDisplay';
                           }
 
                           return null;
@@ -297,33 +369,61 @@ class _CreateConsumptionScreenState
                                   final meterReading = meterReadingValue;
 
                                   final unitsConsumed =
-                                      meterReading - previousReading;
+                                      meterReading - previousReadingValue;
                                   final totalCost =
                                       unitsConsumed * cycle.pricePerUnit;
 
-                                  await ref
-                                      .read(
-                                        electricityReadingsControllerProvider,
-                                      )
-                                      .createReading(
-                                        houseId: cycle.houseId,
-                                        cycleId: cycle.id,
-                                        date: DateTime.now(),
-                                        meterReading: meterReading,
-                                        unitsConsumed: unitsConsumed,
-                                        totalCost: totalCost,
-                                      );
+                                  if (widget.reading != null) {
+                                    // Update existing reading
+                                    await ref
+                                        .read(
+                                          electricityReadingsControllerProvider,
+                                        )
+                                        .updateReading(
+                                          id: widget.reading!.id,
+                                          meterReading: meterReading,
+                                          unitsConsumed: unitsConsumed,
+                                          totalCost: totalCost,
+                                          date: DateTime.now(),
+                                        );
 
-                                  if (!context.mounted) return;
-                                  context.showFlushbar('Consumption recorded');
+                                    // if (!context.mounted) return;
+                                    // context.showFlushbar('Consumption updated');
+                                  } else {
+                                    // Create new reading
+                                    await ref
+                                        .read(
+                                          electricityReadingsControllerProvider,
+                                        )
+                                        .createReading(
+                                          houseId: cycle.houseId,
+                                          cycleId: cycle.id,
+                                          date: DateTime.now(),
+                                          meterReading: meterReading,
+                                          unitsConsumed: unitsConsumed,
+                                          totalCost: totalCost,
+                                        );
+
+                                    // if (!context.mounted) return;
+                                    // context.showFlushbar(
+                                    //   'Consumption recorded',
+                                    // );
+                                  }
+
                                   if (!context.mounted) return;
                                   context.pop();
                                 } on ArgumentError catch (error) {
+                                  if (mounted) {
+                                    setState(() => _isSubmitting = false);
+                                  }
                                   await _showMessage(
                                     error.message,
                                     background: FlushbarColor.warning,
                                   );
                                 } catch (error) {
+                                  if (mounted) {
+                                    setState(() => _isSubmitting = false);
+                                  }
                                   await _showMessage(
                                     'Failed to save consumption',
                                     background: FlushbarColor.error,
