@@ -792,13 +792,14 @@ class $CyclesTableTable extends CyclesTable
   static const VerificationMeta _initialMeterReadingMeta =
       const VerificationMeta('initialMeterReading');
   @override
-  late final GeneratedColumn<int> initialMeterReading = GeneratedColumn<int>(
-    'initial_meter_reading',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
+  late final GeneratedColumn<double> initialMeterReading =
+      GeneratedColumn<double>(
+        'initial_meter_reading',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: true,
+      );
   static const VerificationMeta _maxUnitsMeta = const VerificationMeta(
     'maxUnits',
   );
@@ -1103,7 +1104,7 @@ class $CyclesTableTable extends CyclesTable
         data['${effectivePrefix}end_date'],
       )!,
       initialMeterReading: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
+        DriftSqlType.double,
         data['${effectivePrefix}initial_meter_reading'],
       )!,
       maxUnits: attachedDatabase.typeMapping.read(
@@ -1161,7 +1162,7 @@ class Cycle extends DataClass implements Insertable<Cycle> {
   final String name;
   final DateTime startDate;
   final DateTime endDate;
-  final int initialMeterReading;
+  final double initialMeterReading;
   final int maxUnits;
   final double pricePerUnit;
   final String? notes;
@@ -1198,7 +1199,7 @@ class Cycle extends DataClass implements Insertable<Cycle> {
     map['name'] = Variable<String>(name);
     map['start_date'] = Variable<DateTime>(startDate);
     map['end_date'] = Variable<DateTime>(endDate);
-    map['initial_meter_reading'] = Variable<int>(initialMeterReading);
+    map['initial_meter_reading'] = Variable<double>(initialMeterReading);
     map['max_units'] = Variable<int>(maxUnits);
     map['price_per_unit'] = Variable<double>(pricePerUnit);
     if (!nullToAbsent || notes != null) {
@@ -1252,7 +1253,7 @@ class Cycle extends DataClass implements Insertable<Cycle> {
       name: serializer.fromJson<String>(json['name']),
       startDate: serializer.fromJson<DateTime>(json['startDate']),
       endDate: serializer.fromJson<DateTime>(json['endDate']),
-      initialMeterReading: serializer.fromJson<int>(
+      initialMeterReading: serializer.fromJson<double>(
         json['initialMeterReading'],
       ),
       maxUnits: serializer.fromJson<int>(json['maxUnits']),
@@ -1276,7 +1277,7 @@ class Cycle extends DataClass implements Insertable<Cycle> {
       'name': serializer.toJson<String>(name),
       'startDate': serializer.toJson<DateTime>(startDate),
       'endDate': serializer.toJson<DateTime>(endDate),
-      'initialMeterReading': serializer.toJson<int>(initialMeterReading),
+      'initialMeterReading': serializer.toJson<double>(initialMeterReading),
       'maxUnits': serializer.toJson<int>(maxUnits),
       'pricePerUnit': serializer.toJson<double>(pricePerUnit),
       'notes': serializer.toJson<String?>(notes),
@@ -1296,7 +1297,7 @@ class Cycle extends DataClass implements Insertable<Cycle> {
     String? name,
     DateTime? startDate,
     DateTime? endDate,
-    int? initialMeterReading,
+    double? initialMeterReading,
     int? maxUnits,
     double? pricePerUnit,
     Value<String?> notes = const Value.absent(),
@@ -1424,7 +1425,7 @@ class CyclesTableCompanion extends UpdateCompanion<Cycle> {
   final Value<String> name;
   final Value<DateTime> startDate;
   final Value<DateTime> endDate;
-  final Value<int> initialMeterReading;
+  final Value<double> initialMeterReading;
   final Value<int> maxUnits;
   final Value<double> pricePerUnit;
   final Value<String?> notes;
@@ -1461,7 +1462,7 @@ class CyclesTableCompanion extends UpdateCompanion<Cycle> {
     required String name,
     required DateTime startDate,
     required DateTime endDate,
-    required int initialMeterReading,
+    required double initialMeterReading,
     required int maxUnits,
     required double pricePerUnit,
     this.notes = const Value.absent(),
@@ -1489,7 +1490,7 @@ class CyclesTableCompanion extends UpdateCompanion<Cycle> {
     Expression<String>? name,
     Expression<DateTime>? startDate,
     Expression<DateTime>? endDate,
-    Expression<int>? initialMeterReading,
+    Expression<double>? initialMeterReading,
     Expression<int>? maxUnits,
     Expression<double>? pricePerUnit,
     Expression<String>? notes,
@@ -1530,7 +1531,7 @@ class CyclesTableCompanion extends UpdateCompanion<Cycle> {
     Value<String>? name,
     Value<DateTime>? startDate,
     Value<DateTime>? endDate,
-    Value<int>? initialMeterReading,
+    Value<double>? initialMeterReading,
     Value<int>? maxUnits,
     Value<double>? pricePerUnit,
     Value<String?>? notes,
@@ -1583,7 +1584,9 @@ class CyclesTableCompanion extends UpdateCompanion<Cycle> {
       map['end_date'] = Variable<DateTime>(endDate.value);
     }
     if (initialMeterReading.present) {
-      map['initial_meter_reading'] = Variable<int>(initialMeterReading.value);
+      map['initial_meter_reading'] = Variable<double>(
+        initialMeterReading.value,
+      );
     }
     if (maxUnits.present) {
       map['max_units'] = Variable<int>(maxUnits.value);
@@ -1702,22 +1705,22 @@ class $ElectricityReadingsTableTable extends ElectricityReadingsTable
     'meterReading',
   );
   @override
-  late final GeneratedColumn<int> meterReading = GeneratedColumn<int>(
+  late final GeneratedColumn<double> meterReading = GeneratedColumn<double>(
     'meter_reading',
     aliasedName,
     false,
-    type: DriftSqlType.int,
+    type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
   static const VerificationMeta _unitsConsumedMeta = const VerificationMeta(
     'unitsConsumed',
   );
   @override
-  late final GeneratedColumn<int> unitsConsumed = GeneratedColumn<int>(
+  late final GeneratedColumn<double> unitsConsumed = GeneratedColumn<double>(
     'units_consumed',
     aliasedName,
     false,
-    type: DriftSqlType.int,
+    type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
   static const VerificationMeta _totalCostMeta = const VerificationMeta(
@@ -1978,11 +1981,11 @@ class $ElectricityReadingsTableTable extends ElectricityReadingsTable
         data['${effectivePrefix}date'],
       )!,
       meterReading: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
+        DriftSqlType.double,
         data['${effectivePrefix}meter_reading'],
       )!,
       unitsConsumed: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
+        DriftSqlType.double,
         data['${effectivePrefix}units_consumed'],
       )!,
       totalCost: attachedDatabase.typeMapping.read(
@@ -2032,8 +2035,8 @@ class ElectricityReading extends DataClass
   final String houseId;
   final String cycleId;
   final DateTime date;
-  final int meterReading;
-  final int unitsConsumed;
+  final double meterReading;
+  final double unitsConsumed;
   final double totalCost;
   final String? notes;
   final DateTime createdAt;
@@ -2065,8 +2068,8 @@ class ElectricityReading extends DataClass
     map['house_id'] = Variable<String>(houseId);
     map['cycle_id'] = Variable<String>(cycleId);
     map['date'] = Variable<DateTime>(date);
-    map['meter_reading'] = Variable<int>(meterReading);
-    map['units_consumed'] = Variable<int>(unitsConsumed);
+    map['meter_reading'] = Variable<double>(meterReading);
+    map['units_consumed'] = Variable<double>(unitsConsumed);
     map['total_cost'] = Variable<double>(totalCost);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
@@ -2115,8 +2118,8 @@ class ElectricityReading extends DataClass
       houseId: serializer.fromJson<String>(json['houseId']),
       cycleId: serializer.fromJson<String>(json['cycleId']),
       date: serializer.fromJson<DateTime>(json['date']),
-      meterReading: serializer.fromJson<int>(json['meterReading']),
-      unitsConsumed: serializer.fromJson<int>(json['unitsConsumed']),
+      meterReading: serializer.fromJson<double>(json['meterReading']),
+      unitsConsumed: serializer.fromJson<double>(json['unitsConsumed']),
       totalCost: serializer.fromJson<double>(json['totalCost']),
       notes: serializer.fromJson<String?>(json['notes']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -2135,8 +2138,8 @@ class ElectricityReading extends DataClass
       'houseId': serializer.toJson<String>(houseId),
       'cycleId': serializer.toJson<String>(cycleId),
       'date': serializer.toJson<DateTime>(date),
-      'meterReading': serializer.toJson<int>(meterReading),
-      'unitsConsumed': serializer.toJson<int>(unitsConsumed),
+      'meterReading': serializer.toJson<double>(meterReading),
+      'unitsConsumed': serializer.toJson<double>(unitsConsumed),
       'totalCost': serializer.toJson<double>(totalCost),
       'notes': serializer.toJson<String?>(notes),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -2153,8 +2156,8 @@ class ElectricityReading extends DataClass
     String? houseId,
     String? cycleId,
     DateTime? date,
-    int? meterReading,
-    int? unitsConsumed,
+    double? meterReading,
+    double? unitsConsumed,
     double? totalCost,
     Value<String?> notes = const Value.absent(),
     DateTime? createdAt,
@@ -2270,8 +2273,8 @@ class ElectricityReadingsTableCompanion
   final Value<String> houseId;
   final Value<String> cycleId;
   final Value<DateTime> date;
-  final Value<int> meterReading;
-  final Value<int> unitsConsumed;
+  final Value<double> meterReading;
+  final Value<double> unitsConsumed;
   final Value<double> totalCost;
   final Value<String?> notes;
   final Value<DateTime> createdAt;
@@ -2303,8 +2306,8 @@ class ElectricityReadingsTableCompanion
     required String houseId,
     required String cycleId,
     required DateTime date,
-    required int meterReading,
-    required int unitsConsumed,
+    required double meterReading,
+    required double unitsConsumed,
     required double totalCost,
     this.notes = const Value.absent(),
     required DateTime createdAt,
@@ -2328,8 +2331,8 @@ class ElectricityReadingsTableCompanion
     Expression<String>? houseId,
     Expression<String>? cycleId,
     Expression<DateTime>? date,
-    Expression<int>? meterReading,
-    Expression<int>? unitsConsumed,
+    Expression<double>? meterReading,
+    Expression<double>? unitsConsumed,
     Expression<double>? totalCost,
     Expression<String>? notes,
     Expression<DateTime>? createdAt,
@@ -2364,8 +2367,8 @@ class ElectricityReadingsTableCompanion
     Value<String>? houseId,
     Value<String>? cycleId,
     Value<DateTime>? date,
-    Value<int>? meterReading,
-    Value<int>? unitsConsumed,
+    Value<double>? meterReading,
+    Value<double>? unitsConsumed,
     Value<double>? totalCost,
     Value<String?>? notes,
     Value<DateTime>? createdAt,
@@ -2411,10 +2414,10 @@ class ElectricityReadingsTableCompanion
       map['date'] = Variable<DateTime>(date.value);
     }
     if (meterReading.present) {
-      map['meter_reading'] = Variable<int>(meterReading.value);
+      map['meter_reading'] = Variable<double>(meterReading.value);
     }
     if (unitsConsumed.present) {
-      map['units_consumed'] = Variable<int>(unitsConsumed.value);
+      map['units_consumed'] = Variable<double>(unitsConsumed.value);
     }
     if (totalCost.present) {
       map['total_cost'] = Variable<double>(totalCost.value);
@@ -3055,7 +3058,7 @@ typedef $$CyclesTableTableCreateCompanionBuilder =
       required String name,
       required DateTime startDate,
       required DateTime endDate,
-      required int initialMeterReading,
+      required double initialMeterReading,
       required int maxUnits,
       required double pricePerUnit,
       Value<String?> notes,
@@ -3075,7 +3078,7 @@ typedef $$CyclesTableTableUpdateCompanionBuilder =
       Value<String> name,
       Value<DateTime> startDate,
       Value<DateTime> endDate,
-      Value<int> initialMeterReading,
+      Value<double> initialMeterReading,
       Value<int> maxUnits,
       Value<double> pricePerUnit,
       Value<String?> notes,
@@ -3170,7 +3173,7 @@ class $$CyclesTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get initialMeterReading => $composableBuilder(
+  ColumnFilters<double> get initialMeterReading => $composableBuilder(
     column: $table.initialMeterReading,
     builder: (column) => ColumnFilters(column),
   );
@@ -3305,7 +3308,7 @@ class $$CyclesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get initialMeterReading => $composableBuilder(
+  ColumnOrderings<double> get initialMeterReading => $composableBuilder(
     column: $table.initialMeterReading,
     builder: (column) => ColumnOrderings(column),
   );
@@ -3405,7 +3408,7 @@ class $$CyclesTableTableAnnotationComposer
   GeneratedColumn<DateTime> get endDate =>
       $composableBuilder(column: $table.endDate, builder: (column) => column);
 
-  GeneratedColumn<int> get initialMeterReading => $composableBuilder(
+  GeneratedColumn<double> get initialMeterReading => $composableBuilder(
     column: $table.initialMeterReading,
     builder: (column) => column,
   );
@@ -3533,7 +3536,7 @@ class $$CyclesTableTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<DateTime> startDate = const Value.absent(),
                 Value<DateTime> endDate = const Value.absent(),
-                Value<int> initialMeterReading = const Value.absent(),
+                Value<double> initialMeterReading = const Value.absent(),
                 Value<int> maxUnits = const Value.absent(),
                 Value<double> pricePerUnit = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
@@ -3571,7 +3574,7 @@ class $$CyclesTableTableTableManager
                 required String name,
                 required DateTime startDate,
                 required DateTime endDate,
-                required int initialMeterReading,
+                required double initialMeterReading,
                 required int maxUnits,
                 required double pricePerUnit,
                 Value<String?> notes = const Value.absent(),
@@ -3703,8 +3706,8 @@ typedef $$ElectricityReadingsTableTableCreateCompanionBuilder =
       required String houseId,
       required String cycleId,
       required DateTime date,
-      required int meterReading,
-      required int unitsConsumed,
+      required double meterReading,
+      required double unitsConsumed,
       required double totalCost,
       Value<String?> notes,
       required DateTime createdAt,
@@ -3721,8 +3724,8 @@ typedef $$ElectricityReadingsTableTableUpdateCompanionBuilder =
       Value<String> houseId,
       Value<String> cycleId,
       Value<DateTime> date,
-      Value<int> meterReading,
-      Value<int> unitsConsumed,
+      Value<double> meterReading,
+      Value<double> unitsConsumed,
       Value<double> totalCost,
       Value<String?> notes,
       Value<DateTime> createdAt,
@@ -3811,12 +3814,12 @@ class $$ElectricityReadingsTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get meterReading => $composableBuilder(
+  ColumnFilters<double> get meterReading => $composableBuilder(
     column: $table.meterReading,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get unitsConsumed => $composableBuilder(
+  ColumnFilters<double> get unitsConsumed => $composableBuilder(
     column: $table.unitsConsumed,
     builder: (column) => ColumnFilters(column),
   );
@@ -3927,12 +3930,12 @@ class $$ElectricityReadingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get meterReading => $composableBuilder(
+  ColumnOrderings<double> get meterReading => $composableBuilder(
     column: $table.meterReading,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get unitsConsumed => $composableBuilder(
+  ColumnOrderings<double> get unitsConsumed => $composableBuilder(
     column: $table.unitsConsumed,
     builder: (column) => ColumnOrderings(column),
   );
@@ -4039,12 +4042,12 @@ class $$ElectricityReadingsTableTableAnnotationComposer
   GeneratedColumn<DateTime> get date =>
       $composableBuilder(column: $table.date, builder: (column) => column);
 
-  GeneratedColumn<int> get meterReading => $composableBuilder(
+  GeneratedColumn<double> get meterReading => $composableBuilder(
     column: $table.meterReading,
     builder: (column) => column,
   );
 
-  GeneratedColumn<int> get unitsConsumed => $composableBuilder(
+  GeneratedColumn<double> get unitsConsumed => $composableBuilder(
     column: $table.unitsConsumed,
     builder: (column) => column,
   );
@@ -4167,8 +4170,8 @@ class $$ElectricityReadingsTableTableTableManager
                 Value<String> houseId = const Value.absent(),
                 Value<String> cycleId = const Value.absent(),
                 Value<DateTime> date = const Value.absent(),
-                Value<int> meterReading = const Value.absent(),
-                Value<int> unitsConsumed = const Value.absent(),
+                Value<double> meterReading = const Value.absent(),
+                Value<double> unitsConsumed = const Value.absent(),
                 Value<double> totalCost = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -4201,8 +4204,8 @@ class $$ElectricityReadingsTableTableTableManager
                 required String houseId,
                 required String cycleId,
                 required DateTime date,
-                required int meterReading,
-                required int unitsConsumed,
+                required double meterReading,
+                required double unitsConsumed,
                 required double totalCost,
                 Value<String?> notes = const Value.absent(),
                 required DateTime createdAt,

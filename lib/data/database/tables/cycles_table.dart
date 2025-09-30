@@ -11,7 +11,7 @@ class CyclesTable extends Table {
   TextColumn get name => text()();
   DateTimeColumn get startDate => dateTime()();
   DateTimeColumn get endDate => dateTime()();
-  IntColumn get initialMeterReading => integer()();
+  RealColumn get initialMeterReading => real()();
   IntColumn get maxUnits => integer()();
   RealColumn get pricePerUnit => real()();
   TextColumn get notes => text().nullable()();

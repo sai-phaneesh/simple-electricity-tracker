@@ -209,7 +209,10 @@ class LocalElectricityReadingsDataSource
     return await (_database.select(_database.electricityReadingsTable)
           ..where(
             (tbl) =>
-                tbl.meterReading.isBetweenValues(minReading, maxReading) &
+                tbl.meterReading.isBetweenValues(
+                  minReading.toDouble(),
+                  maxReading.toDouble(),
+                ) &
                 tbl.isDeleted.equals(false),
           )
           ..orderBy([(tbl) => OrderingTerm.desc(tbl.date)]))
@@ -969,8 +972,8 @@ class LocalElectricityReadingsDataSource
       houseId: json['houseId'] as String,
       cycleId: json['cycleId'] as String,
       date: DateTime.parse(json['date'] as String),
-      meterReading: json['meterReading'] as int,
-      unitsConsumed: (json['unitsConsumed'] as num?)?.toInt() ?? 0,
+      meterReading: (json['meterReading'] as num).toDouble(),
+      unitsConsumed: (json['unitsConsumed'] as num).toDouble(),
       totalCost: (json['totalCost'] as num?)?.toDouble() ?? 0.0,
       notes: Value(json['notes'] as String?),
       createdAt: json['createdAt'] != null

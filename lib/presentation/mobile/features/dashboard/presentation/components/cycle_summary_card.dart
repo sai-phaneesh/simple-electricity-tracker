@@ -1,8 +1,10 @@
 import 'package:electricity/core/providers/app_providers.dart';
 import 'package:electricity/core/utils/extensions/theme.dart';
+import 'package:electricity/core/utils/formatters/number_formatter.dart';
 import 'package:electricity/data/database/database.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 class CycleSummaryCard extends ConsumerWidget {
@@ -32,7 +34,7 @@ class CycleSummaryCard extends ConsumerWidget {
           return const SizedBox.shrink();
         }
 
-        final totalUnits = readings.fold<int>(
+        final totalUnits = readings.fold<double>(
           0,
           (sum, reading) => sum + reading.unitsConsumed,
         );
@@ -68,26 +70,48 @@ class CycleSummaryCard extends ConsumerWidget {
                     '($durationDays day${durationDays == 1 ? '' : 's'})',
                     style: context.theme.textTheme.bodySmall,
                   ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () {
+                      context.pushNamed(
+                        'edit-cycle',
+                        pathParameters: {'cycleId': cycle.id},
+                      );
+                    },
+                    tooltip: 'Edit cycle',
+                    iconSize: 20,
+                  ),
                 ],
               ),
               Wrap(
                 spacing: 12,
                 runSpacing: 8,
                 children: [
-                  _SummaryChip(label: 'Units', value: '$totalUnits'),
+                  _SummaryChip(
+                    label: 'Units',
+                    value: AppNumberFormatter.formatNumber(totalUnits),
+                  ),
                   _SummaryChip(
                     label: 'Cost',
-                    value: '₹${totalCost.toStringAsFixed(2)}',
+                    value: AppNumberFormatter.formatCurrency(totalCost),
                   ),
                   _SummaryChip(
                     label: 'Price / unit',
-                    value: '₹${cycle.pricePerUnit.toStringAsFixed(2)}',
+                    value: AppNumberFormatter.formatCurrency(
+                      cycle.pricePerUnit,
+                    ),
                   ),
                   _SummaryChip(
                     label: 'Meter start',
-                    value: '${cycle.initialMeterReading}',
+                    value: AppNumberFormatter.formatMeterReading(
+                      cycle.initialMeterReading,
+                    ),
                   ),
-                  _SummaryChip(label: 'Max units', value: '${cycle.maxUnits}'),
+                  _SummaryChip(
+                    label: 'Max units',
+                    value: AppNumberFormatter.formatUnits(cycle.maxUnits),
+                  ),
                 ],
               ),
               Row(

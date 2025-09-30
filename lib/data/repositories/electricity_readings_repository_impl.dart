@@ -38,8 +38,8 @@ class ElectricityReadingsRepositoryImpl
     required String houseId,
     required String cycleId,
     required DateTime date,
-    required int meterReading,
-    required int unitsConsumed,
+    required double meterReading,
+    required double unitsConsumed,
     required double totalCost,
     String? notes,
   }) async {
@@ -53,9 +53,9 @@ class ElectricityReadingsRepositoryImpl
     }
 
     // Business logic: Validate date is within cycle range
-    if (date.isBefore(cycle.startDate) || date.isAfter(cycle.endDate)) {
-      throw ArgumentError('Reading date must be within cycle date range');
-    }
+    // if (date.isBefore(cycle.startDate) || date.isAfter(cycle.endDate)) {
+    //   throw ArgumentError('Reading date must be within cycle date range');
+    // }
 
     await _dataSources.electricityReadings.createReading(
       ElectricityReadingsTableCompanion(
@@ -79,8 +79,8 @@ class ElectricityReadingsRepositoryImpl
   Future<void> updateReading({
     required String id,
     DateTime? date,
-    int? meterReading,
-    int? unitsConsumed,
+    double? meterReading,
+    double? unitsConsumed,
     double? totalCost,
     String? notes,
   }) async {

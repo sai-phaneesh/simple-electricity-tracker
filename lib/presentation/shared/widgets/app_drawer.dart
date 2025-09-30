@@ -51,10 +51,6 @@ class AppDrawer extends ConsumerWidget {
                     _SectionTitle('Houses'),
                     SizedBox(height: 8),
                     HouseSelectorList(),
-                    SizedBox(height: 16),
-                    _SectionTitle('Cycles'),
-                    SizedBox(height: 8),
-                    CycleSelectorList(),
                   ],
                 ),
               ),
@@ -109,7 +105,6 @@ class HouseSelectorList extends ConsumerWidget {
               onTap: () {
                 ref.read(selectedHouseIdProvider.notifier).setHouse(house.id);
                 ref.read(selectedCycleIdProvider.notifier).clear();
-                context.pop();
               },
               onLongPress: () async {
                 final shouldDelete = await showDialog<bool>(
@@ -204,7 +199,7 @@ class DrawerActions extends ConsumerWidget {
           const Divider(),
           ListTile(
             onTap: () async {
-              context.pop();
+              // context.pop();
               await _showCreateHouseDialog(context, ref);
             },
             title: const Text('Create House'),
@@ -213,11 +208,19 @@ class DrawerActions extends ConsumerWidget {
           ListTile(
             onTap: () {
               context.pop();
-              context.pushNamed(AppRouteNames.createCycle);
+              context.pushNamed(AppRouteNames.settings);
             },
-            title: const Text('Create Cycle'),
-            trailing: const Icon(Icons.add_circle_outline),
+            title: const Text('Settings'),
+            trailing: const Icon(Icons.settings_outlined),
           ),
+          // ListTile(
+          //   onTap: () {
+          //     context.pop();
+          //     context.pushNamed(AppRouteNames.createCycle);
+          //   },
+          //   title: const Text('Create Cycle'),
+          //   trailing: const Icon(Icons.add_circle_outline),
+          // ),
           const ThemeHandlerListTile(),
           const AboutTile(),
         ],

@@ -31,7 +31,7 @@ class LocalCyclesDataSource implements CyclesDataSource {
           ..where(
             (tbl) => tbl.houseId.equals(houseId) & tbl.isDeleted.equals(false),
           )
-          ..orderBy([(tbl) => OrderingTerm.desc(tbl.startDate)]))
+          ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)]))
         .watch();
   }
 
@@ -702,7 +702,7 @@ class LocalCyclesDataSource implements CyclesDataSource {
       name: json['name'] as String,
       startDate: DateTime.parse(json['startDate'] as String),
       endDate: DateTime.parse(json['endDate'] as String),
-      initialMeterReading: json['initialMeterReading'] as int,
+      initialMeterReading: (json['initialMeterReading'] as num).toDouble(),
       maxUnits: json['maxUnits'] as int,
       pricePerUnit: (json['pricePerUnit'] as num).toDouble(),
       notes: Value(json['notes'] as String?),

@@ -12,16 +12,16 @@ abstract class ElectricityReadingsRepository {
     required String houseId,
     required String cycleId,
     required DateTime date,
-    required int meterReading,
-    required int unitsConsumed,
+    required double meterReading,
+    required double unitsConsumed,
     required double totalCost,
     String? notes,
   });
   Future<void> updateReading({
     required String id,
     DateTime? date,
-    int? meterReading,
-    int? unitsConsumed,
+    double? meterReading,
+    double? unitsConsumed,
     double? totalCost,
     String? notes,
   });

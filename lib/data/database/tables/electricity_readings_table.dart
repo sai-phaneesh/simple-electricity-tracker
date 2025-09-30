@@ -11,8 +11,8 @@ class ElectricityReadingsTable extends Table {
   TextColumn get houseId => text().references(HousesTable, #id)();
   TextColumn get cycleId => text().references(CyclesTable, #id)();
   DateTimeColumn get date => dateTime()();
-  IntColumn get meterReading => integer()();
-  IntColumn get unitsConsumed => integer()();
+  RealColumn get meterReading => real()();
+  RealColumn get unitsConsumed => real()();
   RealColumn get totalCost => real()();
   TextColumn get notes => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();

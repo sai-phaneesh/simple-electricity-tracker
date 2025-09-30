@@ -32,7 +32,7 @@ class CyclesRepositoryImpl implements CyclesRepository {
     required String name,
     required DateTime startDate,
     required DateTime endDate,
-    required int initialMeterReading,
+    required double initialMeterReading,
     required int maxUnits,
     required double pricePerUnit,
     bool isActive = false,
@@ -72,7 +72,7 @@ class CyclesRepositoryImpl implements CyclesRepository {
     String? name,
     DateTime? startDate,
     DateTime? endDate,
-    int? initialMeterReading,
+    double? initialMeterReading,
     int? maxUnits,
     double? pricePerUnit,
     bool? isActive,
@@ -87,6 +87,10 @@ class CyclesRepositoryImpl implements CyclesRepository {
       // If making this cycle active, deactivate other active cycles for the house
       await _cyclesDataSource.deactivateOtherCycles(cycle.houseId, id);
     }
+
+    // Check if we need to recalculate readings (when pricePerUnit or initialMeterReading changes)
+    final needsRecalculation =
+        pricePerUnit != null || initialMeterReading != null;
 
     await _cyclesDataSource.updateCycle(
       CyclesTableCompanion(
@@ -108,6 +112,45 @@ class CyclesRepositoryImpl implements CyclesRepository {
         syncStatus: const Value('pending'),
       ),
     );
+
+    // Recalculate all readings for this cycle if price or initial reading changed
+    if (needsRecalculation) {
+      await _recalculateReadingsForCycle(id);
+    }
+  }
+
+  /// Recalculates unitsConsumed and totalCost for all readings in a cycle
+  /// This is needed when pricePerUnit or initialMeterReading is updated
+  Future<void> _recalculateReadingsForCycle(String cycleId) async {
+    // Get the updated cycle data
+    final cycle = await getCycleById(cycleId);
+    if (cycle == null) return;
+
+    // Get all readings for this cycle ordered by date
+    final readings = await _readingsDataSource.getReadingsByCycleId(cycleId);
+    if (readings.isEmpty) return;
+
+    // Recalculate each reading
+    double previousReading = cycle.initialMeterReading;
+
+    for (final reading in readings) {
+      final unitsConsumed = reading.meterReading - previousReading;
+      final totalCost = unitsConsumed * cycle.pricePerUnit;
+
+      await _readingsDataSource.updateReading(
+        ElectricityReadingsTableCompanion(
+          id: Value(reading.id),
+          unitsConsumed: Value(unitsConsumed),
+          totalCost: Value(totalCost),
+          updatedAt: Value(DateTime.now()),
+          needsSync: const Value(true),
+          syncStatus: const Value('pending'),
+        ),
+      );
+
+      // Update previousReading for next iteration
+      previousReading = reading.meterReading;
+    }
   }
 
   @override

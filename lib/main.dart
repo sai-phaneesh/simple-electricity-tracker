@@ -39,7 +39,7 @@ class MyApp extends ConsumerWidget {
         ),
         fontFamily: GoogleFonts.poppins().fontFamily,
       ),
-      darkTheme: ThemeData.dark(useMaterial3: true),
+      darkTheme: ThemeData.dark(),
       routerConfig: _router,
     );
   }
