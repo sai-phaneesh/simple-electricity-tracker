@@ -152,6 +152,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         loading: () => const SizedBox.shrink(),
                         error: (_, _) => const SizedBox.shrink(),
                       ),
+                      // Pending backup indicator
+                      _PendingBackupIndicator(),
                       const SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
@@ -313,6 +315,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             readings: data['readings']!,
           );
       ref.invalidate(_backupMetadataProvider);
+      ref.invalidate(_pendingBackupProvider);
 
       if (mounted) {
         setState(() => _isBackingUp = false);
@@ -417,3 +420,111 @@ final _backupMetadataProvider = FutureProvider((ref) async {
   final useCase = ref.watch(getBackupMetadataUseCaseProvider);
   return await useCase.execute();
 });
+
+// Provider to calculate pending backup counts
+final _pendingBackupProvider = FutureProvider((ref) async {
+  final metadata = await ref.watch(_backupMetadataProvider.future);
+  final db = ref.read(appDatabaseProvider);
+
+  // Get current local counts using Drift queries
+  final houses = await db.select(db.housesTable).get();
+  final cycles = await db.select(db.cyclesTable).get();
+  final readings = await db.select(db.electricityReadingsTable).get();
+
+  if (metadata == null) {
+    // No backup yet - everything is pending
+    return PendingBackupCounts(
+      houses: houses.length,
+      cycles: cycles.length,
+      readings: readings.length,
+      isFirstBackup: true,
+    );
+  }
+
+  // Calculate differences (what's new since last backup)
+  final pendingHouses = houses.length - metadata.housesCount;
+  final pendingCycles = cycles.length - metadata.cyclesCount;
+  final pendingReadings = readings.length - metadata.readingsCount;
+
+  return PendingBackupCounts(
+    houses: pendingHouses > 0 ? pendingHouses : 0,
+    cycles: pendingCycles > 0 ? pendingCycles : 0,
+    readings: pendingReadings > 0 ? pendingReadings : 0,
+    isFirstBackup: false,
+  );
+});
+
+class PendingBackupCounts {
+  final int houses;
+  final int cycles;
+  final int readings;
+  final bool isFirstBackup;
+
+  const PendingBackupCounts({
+    required this.houses,
+    required this.cycles,
+    required this.readings,
+    required this.isFirstBackup,
+  });
+
+  bool get hasPending => houses > 0 || cycles > 0 || readings > 0;
+}
+
+class _PendingBackupIndicator extends ConsumerWidget {
+  const _PendingBackupIndicator();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pendingAsync = ref.watch(_pendingBackupProvider);
+
+    return pendingAsync.when(
+      data: (pending) {
+        if (!pending.hasPending) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.tertiaryContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  pending.isFirstBackup
+                      ? Icons.cloud_upload_outlined
+                      : Icons.sync_outlined,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onTertiaryContainer,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    pending.isFirstBackup
+                        ? 'Ready to backup: ${pending.houses} houses, ${pending.cycles} cycles, ${pending.readings} readings'
+                        : 'Pending backup: ${_buildPendingText(pending)}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onTertiaryContainer,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (error, stackTrace) => const SizedBox.shrink(),
+    );
+  }
+
+  String _buildPendingText(PendingBackupCounts pending) {
+    final parts = <String>[];
+    if (pending.houses > 0) parts.add('${pending.houses} houses');
+    if (pending.cycles > 0) parts.add('${pending.cycles} cycles');
+    if (pending.readings > 0) parts.add('${pending.readings} readings');
+    return parts.join(', ');
+  }
+}
