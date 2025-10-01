@@ -9,11 +9,11 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class SupabaseConfig {
   // static final String supabaseUrl = dotenv.env['SUPABASE_URL']!;
   // static final String supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY']!;
-  static final String supabaseUrl = const String.fromEnvironment(
+  static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
     defaultValue: '',
   );
-  static final String supabaseAnonKey = const String.fromEnvironment(
+  static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
     defaultValue: '',
   );
