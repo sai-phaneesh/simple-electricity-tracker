@@ -298,7 +298,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Signed out but failed to clear local data: $clearError'),
+              content: Text(
+                'Signed out but failed to clear local data: $clearError',
+              ),
               backgroundColor: Colors.orange,
             ),
           );
