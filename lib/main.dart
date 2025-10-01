@@ -1,68 +1,150 @@
-import 'package:electricity/bloc/dashboard_bloc.dart';
-import 'package:electricity/features/dashboard/presentation/screens/dashboard.dart';
-import 'package:electricity/manager/shared_pref_manager.dart';
-import 'package:electricity/shared/theme_cubit/theme_cubit.dart';
-import 'package:flutter/foundation.dart';
+import 'package:electricity/core/config/supabase_config.dart';
+import 'package:electricity/core/di/dependency_injection.dart';
+import 'package:electricity/core/router/app_router.dart';
+import 'package:electricity/data/datasources/local/preferences/shared_pref_manager.dart';
+import 'package:electricity/presentation/shared/providers/theme_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:hydrated_bloc/hydrated_bloc.dart';
-import 'package:path_provider/path_provider.dart';
+final _router = createAppRouter();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
 
-  HydratedBloc.storage = await HydratedStorage.build(
-    storageDirectory: kIsWeb
-        ? HydratedStorageDirectory.web
-        : HydratedStorageDirectory((await getTemporaryDirectory()).path),
+  // Initialize Supabase
+  await Supabase.initialize(
+    url: SupabaseConfig.supabaseUrl,
+    anonKey: SupabaseConfig.supabaseAnonKey,
   );
+
+  await DependencyInjection.init();
 
   await SharedPrefManager.init();
-  final pref = SharedPrefManager();
-  final theme = pref.getThemeMode();
-
-  runApp(
-    BlocProvider(
-      create: (context) => ThemeCubit(pref, initialTheme: theme),
-      child: const MyApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final themeState = context.watch<ThemeCubit>().state;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeState = ref.watch(themeNotifierProvider);
 
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (context) => DashboardBloc(),
+    return MaterialApp.router(
+      title: 'Electricity Tracker',
+      themeMode: themeState.mode,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme:
+            ColorScheme.fromSeed(
+              seedColor: const Color(0xFF6750A4),
+              brightness: Brightness.light,
+            ).copyWith(
+              // Adjust surface colors for better contrast in light mode
+              surface: const Color(0xFFFEFBFF),
+              surfaceContainerLowest: const Color(0xFFFFFFFF),
+              surfaceContainerLow: const Color(0xFFF8F9FA),
+              surfaceContainer: const Color(0xFFF3F4F6),
+              surfaceContainerHigh: const Color(0xFFEDEEF0),
+              surfaceContainerHighest: const Color(0xFFE7E8EB),
+            ),
+        scaffoldBackgroundColor: const Color(0xFFFEFBFF),
+        appBarTheme: const AppBarTheme(
+          centerTitle: false,
+          elevation: 0,
+          scrolledUnderElevation: 1,
+          backgroundColor: Color(0xFFFEFBFF),
         ),
-      ],
-      child: MaterialApp(
-        title: 'Flutter Demo',
-        themeMode: themeState.mode,
-        theme: ThemeData(
-          appBarTheme: const AppBarTheme(),
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color.fromRGBO(24, 18, 43, 0),
+        cardTheme: CardThemeData(
+          elevation: 0,
+          color: const Color(0xFFFFFFFF),
+          surfaceTintColor: const Color(0xFF6750A4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-          inputDecorationTheme: const InputDecorationTheme(
-            border: OutlineInputBorder(),
-            floatingLabelBehavior: FloatingLabelBehavior.always,
-          ),
-          fontFamily: GoogleFonts.poppins().fontFamily,
-          useMaterial3: true,
         ),
-        darkTheme: ThemeData.dark(useMaterial3: true),
-        home: const Dashboard(),
+        inputDecorationTheme: InputDecorationTheme(
+          border: const OutlineInputBorder(),
+          floatingLabelBehavior: FloatingLabelBehavior.always,
+          filled: true,
+          fillColor: const Color(0xFFF3F4F6),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        fontFamily: GoogleFonts.poppins().fontFamily,
       ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF6750A4),
+          brightness: Brightness.dark,
+        ),
+        appBarTheme: AppBarTheme(
+          centerTitle: false,
+          elevation: 0,
+          scrolledUnderElevation: 1,
+          backgroundColor: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF6750A4),
+            brightness: Brightness.dark,
+          ).surface,
+        ),
+        cardTheme: CardThemeData(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: const OutlineInputBorder(),
+          floatingLabelBehavior: FloatingLabelBehavior.always,
+          filled: true,
+          fillColor: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF6750A4),
+            brightness: Brightness.dark,
+          ).surfaceContainerHighest.withValues(alpha: 0.3),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        fontFamily: GoogleFonts.poppins().fontFamily,
+      ),
+      routerConfig: _router,
     );
   }
 }
