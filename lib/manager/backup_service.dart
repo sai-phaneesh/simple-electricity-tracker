@@ -227,4 +227,17 @@ class BackupService {
       readingIds: readingIds,
     );
   }
+
+  /// Clears all local data (use with caution)
+  Future<void> clearAllData({bool includeSyncData = false}) async {
+    await _db.transaction(() async {
+      await _db.delete(_db.electricityReadingsTable).go();
+      await _db.delete(_db.cyclesTable).go();
+      await _db.delete(_db.housesTable).go();
+    });
+    // Optionally, clear or reset any sync tracking if necessary
+    if (includeSyncData) {
+      await _syncRepository.markAllItemsAsSynced();
+    }
+  }
 }

@@ -284,10 +284,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _signOut() async {
     try {
+      // Perform cloud sign out
       await ref.read(signOutUseCaseProvider).execute();
+
+      // Clear local database to remove user data after successful sign out
+      try {
+        final db = ref.read(appDatabaseProvider);
+        final syncRepository = ref.read(syncTrackingRepositoryProvider);
+        final backupService = BackupService(db, syncRepository);
+        await backupService.clearAllData(includeSyncData: true);
+      } catch (clearError) {
+        // If clearing local data fails, surface a warning but the sign out itself succeeded
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Signed out but failed to clear local data: $clearError'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Signed out successfully')),
+          const SnackBar(content: Text('Signed out and local data cleared')),
         );
       }
     } catch (e) {
