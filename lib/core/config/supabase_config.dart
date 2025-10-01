@@ -7,8 +7,16 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 /// 2. Get your project URL and anon key from project settings
 /// 3. Replace the values below
 class SupabaseConfig {
-  static final String supabaseUrl = dotenv.env['SUPABASE_URL']!;
-  static final String supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY']!;
+  // static final String supabaseUrl = dotenv.env['SUPABASE_URL']!;
+  // static final String supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY']!;
+  static final String supabaseUrl = const String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: '',
+  );
+  static final String supabaseAnonKey = const String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue: '',
+  );
 
   // Table names for backup
   static const String housesTable = 'houses';

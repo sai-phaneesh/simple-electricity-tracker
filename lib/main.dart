@@ -14,7 +14,7 @@ final _router = createAppRouter();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env");
+  // await dotenv.load(fileName: ".env");
 
   // Initialize Supabase
   await Supabase.initialize(
