@@ -3,57 +3,43 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:electricity/data/database/database.dart';
 import 'package:electricity/data/datasources/cycles_datasource.dart';
 import 'package:electricity/data/datasources/datasource_locator.dart';
 import 'package:electricity/data/datasources/electricity_readings_datasource.dart';
 import 'package:electricity/data/datasources/houses_datasource.dart';
-import 'package:electricity/data/datasources/local/local_cycles_datasource.dart';
-import 'package:electricity/data/datasources/local/local_electricity_readings_datasource.dart';
-import 'package:electricity/data/datasources/local/local_houses_datasource.dart';
 import 'package:electricity/data/datasources/local/preferences/shared_pref_manager.dart';
 import 'package:electricity/data/repositories/cycles_repository_impl.dart';
 import 'package:electricity/data/repositories/electricity_readings_repository_impl.dart';
 import 'package:electricity/data/repositories/houses_repository_impl.dart';
+import 'package:electricity/domain/entities/house.dart';
+import 'package:electricity/domain/entities/cycle.dart';
+import 'package:electricity/domain/entities/electricity_reading.dart';
 import 'package:electricity/domain/repositories/cycles_repository.dart';
 import 'package:electricity/domain/repositories/electricity_readings_repository.dart';
 import 'package:electricity/domain/repositories/houses_repository.dart';
-import 'package:electricity/domain/usecases/sync_tracking_usecases.dart';
-import 'package:electricity/core/providers/sync_tracking_providers.dart';
+import 'package:electricity/core/providers/supabase_provider.dart';
 
 /// Core dependency providers
 final sharedPrefManagerProvider = Provider<SharedPrefManager>((ref) {
   return SharedPrefManager();
 });
 
-final appDatabaseProvider = Provider<AppDatabase>((ref) {
-  final database = DatabaseProvider.database;
-  ref.onDispose(() {
-    // Best-effort close when the provider scope is destroyed.
-    unawaited(DatabaseProvider.close());
-  });
-  return database;
-});
-
 final dataSourceLocatorProvider = Provider<DataSourceLocator>((ref) {
-  final database = ref.watch(appDatabaseProvider);
-  return DataSourceLocator(database);
+  final supabase = ref.watch(supabaseClientProvider);
+  return DataSourceLocator(supabase);
 });
 
 final housesDataSourceProvider = Provider<HousesDataSource>((ref) {
-  final database = ref.watch(appDatabaseProvider);
-  return LocalHousesDataSource(database);
+  return ref.watch(dataSourceLocatorProvider).houses;
 });
 
 final cyclesDataSourceProvider = Provider<CyclesDataSource>((ref) {
-  final database = ref.watch(appDatabaseProvider);
-  return LocalCyclesDataSource(database);
+  return ref.watch(dataSourceLocatorProvider).cycles;
 });
 
 final electricityReadingsDataSourceProvider =
     Provider<ElectricityReadingsDataSource>((ref) {
-      final database = ref.watch(appDatabaseProvider);
-      return LocalElectricityReadingsDataSource(database);
+      return ref.watch(dataSourceLocatorProvider).electricityReadings;
     });
 
 final housesRepositoryProvider = Provider<HousesRepository>((ref) {
@@ -107,16 +93,14 @@ final readingsForSelectedCycleStreamProvider =
 
 /// Selected house + cycle state
 final selectedHouseIdProvider =
-    StateNotifierProvider<SelectedHouseIdNotifier, String?>((ref) {
-      final prefs = ref.watch(sharedPrefManagerProvider);
-      return SelectedHouseIdNotifier(ref, prefs);
-    });
+    NotifierProvider<SelectedHouseIdNotifier, String?>(
+      SelectedHouseIdNotifier.new,
+    );
 
 final selectedCycleIdProvider =
-    StateNotifierProvider<SelectedCycleIdNotifier, String?>((ref) {
-      final prefs = ref.watch(sharedPrefManagerProvider);
-      return SelectedCycleIdNotifier(prefs);
-    });
+    NotifierProvider<SelectedCycleIdNotifier, String?>(
+      SelectedCycleIdNotifier.new,
+    );
 
 final selectedHouseProvider = Provider<AsyncValue<House?>>((ref) {
   final housesAsync = ref.watch(housesStreamProvider);
@@ -178,15 +162,10 @@ final selectedCycleProvider = Provider<AsyncValue<Cycle?>>((ref) {
 
 /// Controllers for CRUD operations
 class HousesController {
-  HousesController(
-    this._ref,
-    this._repository,
-    this._markItemsAsNeedingSyncUseCase,
-  );
+  HousesController(this._ref, this._repository);
 
   final Ref _ref;
   final HousesRepository _repository;
-  final MarkItemsAsNeedingSyncUseCase _markItemsAsNeedingSyncUseCase;
 
   Future<String> createHouse({
     required String name,
@@ -200,10 +179,6 @@ class HousesController {
       meterNumber: meterNumber,
       defaultPricePerUnit: defaultPricePerUnit,
     );
-
-    // Mark for sync
-    await _markItemsAsNeedingSyncUseCase.execute(houseIds: [id]);
-    _ref.invalidate(pendingBackupCountsProvider);
 
     _ref.read(selectedHouseIdProvider.notifier).setHouse(id);
     return id;
@@ -223,18 +198,10 @@ class HousesController {
       meterNumber: meterNumber,
       defaultPricePerUnit: defaultPricePerUnit,
     );
-
-    // Mark for sync
-    await _markItemsAsNeedingSyncUseCase.execute(houseIds: [id]);
-    _ref.invalidate(pendingBackupCountsProvider);
   }
 
   Future<void> deleteHouse(String id) async {
     await _repository.deleteHouse(id);
-
-    // Mark for sync
-    await _markItemsAsNeedingSyncUseCase.execute(houseIds: [id]);
-    _ref.invalidate(pendingBackupCountsProvider);
 
     final selectedId = _ref.read(selectedHouseIdProvider);
     if (selectedId == id) {
@@ -244,15 +211,10 @@ class HousesController {
 }
 
 class CyclesController {
-  CyclesController(
-    this._ref,
-    this._repository,
-    this._markItemsAsNeedingSyncUseCase,
-  );
+  CyclesController(this._ref, this._repository);
 
   final Ref _ref;
   final CyclesRepository _repository;
-  final MarkItemsAsNeedingSyncUseCase _markItemsAsNeedingSyncUseCase;
 
   Future<String> createCycle({
     required String houseId,
@@ -276,10 +238,6 @@ class CyclesController {
       isActive: isActive,
       notes: notes,
     );
-
-    // Mark for sync
-    await _markItemsAsNeedingSyncUseCase.execute(cycleIds: [id]);
-    _ref.invalidate(pendingBackupCountsProvider);
 
     _ref.read(selectedCycleIdProvider.notifier).setCycle(id);
     return id;
@@ -307,18 +265,10 @@ class CyclesController {
       isActive: isActive,
       notes: notes,
     );
-
-    // Mark for sync
-    await _markItemsAsNeedingSyncUseCase.execute(cycleIds: [id]);
-    _ref.invalidate(pendingBackupCountsProvider);
   }
 
   Future<void> deleteCycle(String id) async {
     await _repository.deleteCycle(id);
-
-    // Mark for sync
-    await _markItemsAsNeedingSyncUseCase.execute(cycleIds: [id]);
-    _ref.invalidate(pendingBackupCountsProvider);
 
     final selectedId = _ref.read(selectedCycleIdProvider);
     if (selectedId == id) {
@@ -328,15 +278,9 @@ class CyclesController {
 }
 
 class ElectricityReadingsController {
-  ElectricityReadingsController(
-    this._ref,
-    this._repository,
-    this._markItemsAsNeedingSyncUseCase,
-  );
+  ElectricityReadingsController(this._repository);
 
-  final Ref _ref;
   final ElectricityReadingsRepository _repository;
-  final MarkItemsAsNeedingSyncUseCase _markItemsAsNeedingSyncUseCase;
 
   Future<String> createReading({
     required String houseId,
@@ -357,10 +301,6 @@ class ElectricityReadingsController {
       notes: notes,
     );
 
-    // Mark for sync
-    await _markItemsAsNeedingSyncUseCase.execute(readingIds: [id]);
-    _ref.invalidate(pendingBackupCountsProvider);
-
     return id;
   }
 
@@ -380,72 +320,58 @@ class ElectricityReadingsController {
       totalCost: totalCost,
       notes: notes,
     );
-
-    // Mark for sync
-    await _markItemsAsNeedingSyncUseCase.execute(readingIds: [id]);
-    _ref.invalidate(pendingBackupCountsProvider);
   }
 
   Future<void> deleteReading(String id) async {
     await _repository.deleteReading(id);
-
-    // Mark for sync
-    await _markItemsAsNeedingSyncUseCase.execute(readingIds: [id]);
-    _ref.invalidate(pendingBackupCountsProvider);
   }
 }
 
 final housesControllerProvider = Provider<HousesController>((ref) {
-  return HousesController(
-    ref,
-    ref.watch(housesRepositoryProvider),
-    ref.watch(markItemsAsNeedingSyncUseCaseProvider),
-  );
+  return HousesController(ref, ref.watch(housesRepositoryProvider));
 });
 
 final cyclesControllerProvider = Provider<CyclesController>((ref) {
-  return CyclesController(
-    ref,
-    ref.watch(cyclesRepositoryProvider),
-    ref.watch(markItemsAsNeedingSyncUseCaseProvider),
-  );
+  return CyclesController(ref, ref.watch(cyclesRepositoryProvider));
 });
 
 final electricityReadingsControllerProvider =
     Provider<ElectricityReadingsController>((ref) {
       return ElectricityReadingsController(
-        ref,
         ref.watch(electricityReadingsRepositoryProvider),
-        ref.watch(markItemsAsNeedingSyncUseCaseProvider),
       );
     });
 
-class SelectedHouseIdNotifier extends StateNotifier<String?> {
-  SelectedHouseIdNotifier(this._ref, this._prefs)
-    : super(_prefs.getSelectedHouseId());
-
-  final Ref _ref;
-  final SharedPrefManager _prefs;
+class SelectedHouseIdNotifier extends Notifier<String?> {
+  @override
+  String? build() {
+    final prefs = ref.watch(sharedPrefManagerProvider);
+    return prefs.getSelectedHouseId();
+  }
 
   void setHouse(String? houseId) {
     if (state == houseId) return;
     state = houseId;
-    unawaited(_prefs.saveSelectedHouseId(houseId));
+    final prefs = ref.read(sharedPrefManagerProvider);
+    unawaited(prefs.saveSelectedHouseId(houseId));
     if (houseId == null) {
-      _ref.read(selectedCycleIdProvider.notifier).clear();
+      ref.read(selectedCycleIdProvider.notifier).clear();
     }
   }
 }
 
-class SelectedCycleIdNotifier extends StateNotifier<String?> {
-  SelectedCycleIdNotifier(this._prefs) : super(_prefs.getSelectedCycleId());
-
-  final SharedPrefManager _prefs;
+class SelectedCycleIdNotifier extends Notifier<String?> {
+  @override
+  String? build() {
+    final prefs = ref.watch(sharedPrefManagerProvider);
+    return prefs.getSelectedCycleId();
+  }
 
   void setCycle(String? cycleId) {
     if (state == cycleId) return;
     state = cycleId;
-    unawaited(_prefs.saveSelectedCycleId(cycleId));
+    final prefs = ref.read(sharedPrefManagerProvider);
+    unawaited(prefs.saveSelectedCycleId(cycleId));
   }
 
   void clear() => setCycle(null);

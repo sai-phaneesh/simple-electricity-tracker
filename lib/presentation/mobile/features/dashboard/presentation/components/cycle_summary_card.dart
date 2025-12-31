@@ -1,7 +1,7 @@
 import 'package:electricity/core/providers/app_providers.dart';
 import 'package:electricity/core/utils/extensions/theme.dart';
 import 'package:electricity/core/utils/formatters/number_formatter.dart';
-import 'package:electricity/data/database/database.dart';
+import 'package:electricity/domain/entities/electricity_reading.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';

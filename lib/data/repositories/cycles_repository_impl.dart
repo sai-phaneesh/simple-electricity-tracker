@@ -1,9 +1,8 @@
-import 'package:electricity/data/database/database.dart';
 import 'package:electricity/data/datasources/cycles_datasource.dart';
 import 'package:electricity/data/datasources/electricity_readings_datasource.dart';
+import 'package:electricity/domain/entities/cycle.dart';
 import 'package:electricity/domain/repositories/cycles_repository.dart';
 import 'package:uuid/uuid.dart';
-import 'package:drift/drift.dart';
 
 class CyclesRepositoryImpl implements CyclesRepository {
   final CyclesDataSource _cyclesDataSource;
@@ -46,22 +45,22 @@ class CyclesRepositoryImpl implements CyclesRepository {
       await _cyclesDataSource.deactivateOtherCycles(houseId, id);
     }
 
-    await _cyclesDataSource.createCycle(
-      CyclesTableCompanion.insert(
-        id: id,
-        houseId: houseId,
-        name: name,
-        startDate: startDate,
-        endDate: endDate,
-        initialMeterReading: initialMeterReading,
-        maxUnits: maxUnits,
-        pricePerUnit: pricePerUnit,
-        isActive: Value(isActive),
-        notes: Value(notes),
-        createdAt: now,
-        updatedAt: now,
-      ),
+    final cycle = Cycle(
+      id: id,
+      houseId: houseId,
+      name: name,
+      startDate: startDate,
+      endDate: endDate,
+      initialMeterReading: initialMeterReading,
+      maxUnits: maxUnits,
+      pricePerUnit: pricePerUnit,
+      isActive: isActive,
+      notes: notes,
+      createdAt: now,
+      updatedAt: now,
     );
+
+    await _cyclesDataSource.createCycle(cycle);
 
     return id;
   }
@@ -78,42 +77,34 @@ class CyclesRepositoryImpl implements CyclesRepository {
     bool? isActive,
     String? notes,
   }) async {
-    final cycle = await getCycleById(id);
-    if (cycle == null) {
+    final existingCycle = await getCycleById(id);
+    if (existingCycle == null) {
       throw Exception('Cycle not found');
     }
 
     if (isActive == true) {
       // If making this cycle active, deactivate other active cycles for the house
-      await _cyclesDataSource.deactivateOtherCycles(cycle.houseId, id);
+      await _cyclesDataSource.deactivateOtherCycles(existingCycle.houseId, id);
     }
+
+    final updatedCycle = existingCycle.copyWith(
+      name: name,
+      startDate: startDate,
+      endDate: endDate,
+      initialMeterReading: initialMeterReading,
+      maxUnits: maxUnits,
+      pricePerUnit: pricePerUnit,
+      isActive: isActive,
+      notes: notes,
+      updatedAt: DateTime.now(),
+    );
+
+    await _cyclesDataSource.updateCycle(updatedCycle);
 
     // Check if we need to recalculate readings (when pricePerUnit or initialMeterReading changes)
     final needsRecalculation =
         pricePerUnit != null || initialMeterReading != null;
 
-    await _cyclesDataSource.updateCycle(
-      CyclesTableCompanion(
-        id: Value(id),
-        name: name != null ? Value(name) : const Value.absent(),
-        startDate: startDate != null ? Value(startDate) : const Value.absent(),
-        endDate: endDate != null ? Value(endDate) : const Value.absent(),
-        initialMeterReading: initialMeterReading != null
-            ? Value(initialMeterReading)
-            : const Value.absent(),
-        maxUnits: maxUnits != null ? Value(maxUnits) : const Value.absent(),
-        pricePerUnit: pricePerUnit != null
-            ? Value(pricePerUnit)
-            : const Value.absent(),
-        isActive: isActive != null ? Value(isActive) : const Value.absent(),
-        notes: notes != null ? Value(notes) : const Value.absent(),
-        updatedAt: Value(DateTime.now()),
-        needsSync: const Value(true),
-        syncStatus: const Value('pending'),
-      ),
-    );
-
-    // Recalculate all readings for this cycle if price or initial reading changed
     if (needsRecalculation) {
       await _recalculateReadingsForCycle(id);
     }
@@ -138,13 +129,10 @@ class CyclesRepositoryImpl implements CyclesRepository {
       final totalCost = unitsConsumed * cycle.pricePerUnit;
 
       await _readingsDataSource.updateReading(
-        ElectricityReadingsTableCompanion(
-          id: Value(reading.id),
-          unitsConsumed: Value(unitsConsumed),
-          totalCost: Value(totalCost),
-          updatedAt: Value(DateTime.now()),
-          needsSync: const Value(true),
-          syncStatus: const Value('pending'),
+        reading.copyWith(
+          unitsConsumed: unitsConsumed,
+          totalCost: totalCost,
+          updatedAt: DateTime.now(),
         ),
       );
 
@@ -172,45 +160,15 @@ class CyclesRepositoryImpl implements CyclesRepository {
   @override
   Future<void> setActiveCycle(String houseId, String cycleId) async {
     await _cyclesDataSource.deactivateOtherCycles(houseId, cycleId);
-  }
-
-  @override
-  Future<List<Cycle>> getCyclesByDateRange(
-    DateTime startDate,
-    DateTime endDate,
-  ) async {
-    return await _cyclesDataSource.getCyclesByDateRange(startDate, endDate);
-  }
-
-  @override
-  Future<List<Cycle>> searchCycles(String query) async {
-    return await _cyclesDataSource.searchCycles(query);
+    final cycle = await getCycleById(cycleId);
+    if (cycle != null) {
+      await _cyclesDataSource.updateCycle(cycle.copyWith(isActive: true));
+    }
   }
 
   @override
   Future<int> getCyclesCount({String? houseId}) async {
     return await _cyclesDataSource.getCyclesCount(houseId: houseId);
-  }
-
-  @override
-  Future<List<Cycle>> getCyclesNeedingSync() async {
-    return await _cyclesDataSource.getCyclesNeedingSync();
-  }
-
-  @override
-  Future<void> markCycleAsSynced(String id) async {
-    await _cyclesDataSource.markCycleAsSynced(id);
-  }
-
-  @override
-  Future<bool> hasDataNeedingSync() async {
-    final cycles = await getCyclesNeedingSync();
-    return cycles.isNotEmpty;
-  }
-
-  @override
-  Future<DateTime?> getLastSyncTime() async {
-    return await _cyclesDataSource.getLastSyncTime();
   }
 
   @override
@@ -221,8 +179,12 @@ class CyclesRepositoryImpl implements CyclesRepository {
     }
 
     final readings = await _readingsDataSource.getReadingsByCycleId(cycleId);
-    final totalConsumption = await _readingsDataSource
-        .getTotalConsumptionForCycle(cycleId);
+
+    double totalConsumption = 0;
+    if (readings.isNotEmpty) {
+      totalConsumption =
+          readings.first.meterReading - cycle.initialMeterReading;
+    }
     final totalCost = totalConsumption * cycle.pricePerUnit;
 
     return {
@@ -253,8 +215,13 @@ class CyclesRepositoryImpl implements CyclesRepository {
     final cycle = await getCycleById(cycleId);
     if (cycle == null) return 0.0;
 
-    final totalConsumption = await _readingsDataSource
-        .getTotalConsumptionForCycle(cycleId);
+    final readings = await _readingsDataSource.getReadingsByCycleId(cycleId);
+    double totalConsumption = 0;
+    if (readings.isNotEmpty) {
+      totalConsumption =
+          readings.first.meterReading - cycle.initialMeterReading;
+    }
+
     return cycle.maxUnits > 0
         ? (totalConsumption / cycle.maxUnits * 100).clamp(0.0, 100.0)
         : 0.0;
@@ -265,8 +232,13 @@ class CyclesRepositoryImpl implements CyclesRepository {
     final cycle = await getCycleById(cycleId);
     if (cycle == null) return 0;
 
-    final totalConsumption = await _readingsDataSource
-        .getTotalConsumptionForCycle(cycleId);
+    final readings = await _readingsDataSource.getReadingsByCycleId(cycleId);
+    double totalConsumption = 0;
+    if (readings.isNotEmpty) {
+      totalConsumption =
+          readings.first.meterReading - cycle.initialMeterReading;
+    }
+
     return (cycle.maxUnits - totalConsumption.toInt()).clamp(0, cycle.maxUnits);
   }
 
@@ -275,8 +247,13 @@ class CyclesRepositoryImpl implements CyclesRepository {
     final cycle = await getCycleById(cycleId);
     if (cycle == null) return 0.0;
 
-    final totalConsumption = await _readingsDataSource
-        .getTotalConsumptionForCycle(cycleId);
+    final readings = await _readingsDataSource.getReadingsByCycleId(cycleId);
+    double totalConsumption = 0;
+    if (readings.isNotEmpty) {
+      totalConsumption =
+          readings.first.meterReading - cycle.initialMeterReading;
+    }
+
     return totalConsumption * cycle.pricePerUnit;
   }
 }

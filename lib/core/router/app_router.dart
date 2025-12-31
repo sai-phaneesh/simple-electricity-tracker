@@ -1,5 +1,7 @@
 import 'package:electricity/core/providers/app_providers.dart';
-import 'package:electricity/data/database/database.dart';
+import 'package:electricity/core/providers/supabase_provider.dart';
+import 'package:electricity/domain/entities/electricity_reading.dart';
+import 'package:electricity/presentation/mobile/features/auth/auth_screen.dart';
 import 'package:electricity/presentation/mobile/features/consumptions/presentation/create_consumption_screen.dart';
 import 'package:electricity/presentation/mobile/features/cycles/presentation/screens/create_cycle_screen.dart';
 import 'package:electricity/presentation/mobile/features/dashboard/presentation/screens/dashboard.dart';
@@ -10,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 abstract class AppRouteNames {
+  static const auth = 'auth';
   static const dashboard = 'dashboard';
   static const createCycle = 'create-cycle';
   static const editCycle = 'edit-cycle';
@@ -27,8 +30,8 @@ class DashboardShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedHouseAsync = ref.watch(selectedHouseProvider);
     final selectedCycleAsync = ref.watch(selectedCycleProvider);
-    final selectedHouse = selectedHouseAsync.valueOrNull;
-    final selectedCycle = selectedCycleAsync.valueOrNull;
+    final selectedHouse = selectedHouseAsync.value;
+    final selectedCycle = selectedCycleAsync.value;
 
     return Scaffold(
       drawer: const AppDrawer(),
@@ -50,10 +53,38 @@ class DashboardShell extends ConsumerWidget {
   }
 }
 
-GoRouter createAppRouter() {
+/// Provider for the GoRouter instance
+final routerProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authStateProvider);
+
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: '/auth',
+    refreshListenable: GoRouterRefreshStream(ref),
+    redirect: (context, state) {
+      final isLoggedIn = authState.maybeWhen(
+        data: (auth) => auth.session != null,
+        orElse: () => false,
+      );
+      final isLoggingIn = state.matchedLocation == '/auth';
+
+      // If not logged in and not on auth page, redirect to auth
+      if (!isLoggedIn && !isLoggingIn) {
+        return '/auth';
+      }
+
+      // If logged in and on auth page, redirect to dashboard
+      if (isLoggedIn && isLoggingIn) {
+        return '/';
+      }
+
+      return null;
+    },
     routes: [
+      GoRoute(
+        path: '/auth',
+        name: AppRouteNames.auth,
+        builder: (context, state) => const AuthScreen(),
+      ),
       ShellRoute(
         builder: (context, state, child) => DashboardShell(child: child),
         routes: [
@@ -97,4 +128,15 @@ GoRouter createAppRouter() {
       ),
     ],
   );
+});
+
+/// A ChangeNotifier that rebuilds the router when the ref changes
+class GoRouterRefreshStream extends ChangeNotifier {
+  GoRouterRefreshStream(this._ref) {
+    _ref.listen(authStateProvider, (_, next) {
+      notifyListeners();
+    });
+  }
+
+  final Ref _ref;
 }

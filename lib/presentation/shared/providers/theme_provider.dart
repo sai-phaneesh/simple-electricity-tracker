@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:electricity/core/providers/app_providers.dart';
-import 'package:electricity/data/datasources/local/preferences/shared_pref_manager.dart';
 
 class ThemeState {
   const ThemeState({required this.mode});
@@ -27,15 +26,21 @@ class ThemeState {
   Map<String, dynamic> toJson() => {'mode': mode.name};
 }
 
-class ThemeNotifier extends StateNotifier<ThemeState> {
-  ThemeNotifier(this._prefs, ThemeState initialState) : super(initialState);
-
-  final SharedPrefManager _prefs;
+class ThemeNotifier extends Notifier<ThemeState> {
+  @override
+  ThemeState build() {
+    final prefs = ref.watch(sharedPrefManagerProvider);
+    final savedTheme = prefs.getThemeModeJson();
+    return savedTheme != null
+        ? ThemeState.fromJson(savedTheme)
+        : ThemeState.initial();
+  }
 
   void setThemeMode(ThemeMode mode) {
     if (state.mode == mode) return;
     state = state.copyWith(mode: mode);
-    _prefs.saveThemeMode(themeJson: state.toJson());
+    final prefs = ref.read(sharedPrefManagerProvider);
+    prefs.saveThemeMode(themeJson: state.toJson());
   }
 
   void toggleThemeMode() {
@@ -55,13 +60,6 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
   }
 }
 
-final themeNotifierProvider = StateNotifierProvider<ThemeNotifier, ThemeState>((
-  ref,
-) {
-  final prefs = ref.watch(sharedPrefManagerProvider);
-  final stored = prefs.getThemeModeJson();
-  final initialState = stored == null
-      ? ThemeState.initial()
-      : ThemeState.fromJson(stored);
-  return ThemeNotifier(prefs, initialState);
-});
+final themeNotifierProvider = NotifierProvider<ThemeNotifier, ThemeState>(
+  ThemeNotifier.new,
+);

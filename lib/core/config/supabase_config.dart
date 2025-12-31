@@ -1,22 +1,18 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
 /// Supabase configuration
 ///
 /// To use this app with Supabase:
 /// 1. Create a project at https://supabase.com
 /// 2. Get your project URL and anon key from project settings
-/// 3. Replace the values below
+/// 3. Replace the values below with your actual credentials
+///
+/// IMPORTANT: In production, use environment variables or a secure config file
 class SupabaseConfig {
-  // static final String supabaseUrl = dotenv.env['SUPABASE_URL']!;
-  // static final String supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY']!;
-  static const String supabaseUrl = String.fromEnvironment(
-    'SUPABASE_URL',
-    defaultValue: '',
-  );
-  static const String supabaseAnonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY',
-    defaultValue: '',
-  );
+  // TODO: Replace these with your actual Supabase credentials
+  // Get them from: https://supabase.com/dashboard/project/_/settings/api
+  static const String supabaseUrl =
+      'https://qllihzwtdnvkecswzypi.supabase.co'; // e.g., 'https://xxxxx.supabase.co'
+  static const String supabaseAnonKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsbGloend0ZG52a2Vjc3d6eXBpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyNTU0OTMsImV4cCI6MjA3NDgzMTQ5M30.P3mRtY31kn4DqH3_99KgY7XSQqUsn12QfiWniROoWPM'; // Your anon/public key
 
   // Table names for backup
   static const String housesTable = 'houses';

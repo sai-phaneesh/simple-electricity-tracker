@@ -1,9 +1,8 @@
-import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
-import 'package:electricity/data/database/database.dart';
 import 'package:electricity/data/datasources/houses_datasource.dart';
 import 'package:electricity/data/datasources/cycles_datasource.dart';
 import 'package:electricity/data/datasources/electricity_readings_datasource.dart';
+import 'package:electricity/domain/entities/house.dart';
 import 'package:electricity/domain/repositories/houses_repository.dart';
 
 /// Concrete implementation of HousesRepository
@@ -40,17 +39,17 @@ class HousesRepositoryImpl implements HousesRepository {
     final id = _uuid.v4();
     final now = DateTime.now();
 
-    await _housesDataSource.createHouse(
-      HousesTableCompanion(
-        id: Value(id),
-        name: Value(name),
-        address: Value(address),
-        meterNumber: Value(meterNumber),
-        defaultPricePerUnit: Value(defaultPricePerUnit),
-        createdAt: Value(now),
-        updatedAt: Value(now),
-      ),
+    final house = House(
+      id: id,
+      name: name,
+      address: address,
+      meterNumber: meterNumber,
+      defaultPricePerUnit: defaultPricePerUnit,
+      createdAt: now,
+      updatedAt: now,
     );
+
+    await _housesDataSource.createHouse(house);
 
     return id;
   }
@@ -63,20 +62,18 @@ class HousesRepositoryImpl implements HousesRepository {
     String? meterNumber,
     double? defaultPricePerUnit,
   }) async {
-    await _housesDataSource.updateHouse(
-      HousesTableCompanion(
-        id: Value(id),
-        name: name != null ? Value(name) : const Value.absent(),
-        address: address != null ? Value(address) : const Value.absent(),
-        meterNumber: meterNumber != null
-            ? Value(meterNumber)
-            : const Value.absent(),
-        defaultPricePerUnit: defaultPricePerUnit != null
-            ? Value(defaultPricePerUnit)
-            : const Value.absent(),
-        updatedAt: Value(DateTime.now()),
-      ),
+    final existingHouse = await _housesDataSource.getHouseById(id);
+    if (existingHouse == null) return;
+
+    final updatedHouse = existingHouse.copyWith(
+      name: name,
+      address: address,
+      meterNumber: meterNumber,
+      defaultPricePerUnit: defaultPricePerUnit,
+      updatedAt: DateTime.now(),
     );
+
+    await _housesDataSource.updateHouse(updatedHouse);
   }
 
   @override
@@ -121,27 +118,6 @@ class HousesRepositoryImpl implements HousesRepository {
   }
 
   @override
-  Future<List<House>> getHousesNeedingSync() async {
-    return await _housesDataSource.getHousesNeedingSync();
-  }
-
-  @override
-  Future<void> markHouseAsSynced(String id) async {
-    await _housesDataSource.markHouseAsSynced(id);
-  }
-
-  @override
-  Future<bool> hasDataNeedingSync() async {
-    final houses = await getHousesNeedingSync();
-    return houses.isNotEmpty;
-  }
-
-  @override
-  Future<DateTime?> getLastSyncTime() async {
-    return await _housesDataSource.getLastSyncTime();
-  }
-
-  @override
   Future<Map<String, dynamic>> getHouseStatistics(String houseId) async {
     // Business logic: Aggregate statistics from multiple datasources
     final house = await getHouseById(houseId);
@@ -175,13 +151,5 @@ class HousesRepositoryImpl implements HousesRepository {
       totalCost += reading.totalCost;
     }
     return totalCost;
-  }
-
-  @override
-  Future<Map<String, double>> getMonthlySpendingForHouse(
-    String houseId,
-    int year,
-  ) async {
-    return await _readingsDataSource.getMonthlyConsumption(houseId, year);
   }
 }

@@ -1,4 +1,4 @@
-import 'package:electricity/data/database/database.dart';
+import 'package:electricity/domain/entities/electricity_reading.dart';
 
 /// Abstract repository interface for electricity readings operations
 /// Repositories coordinate between multiple datasources and implement business logic
@@ -30,28 +30,12 @@ abstract class ElectricityReadingsRepository {
   // Business logic operations
   Future<ElectricityReading?> getLatestReadingForCycle(String cycleId);
   Future<ElectricityReading?> getLatestReadingForHouse(String houseId);
-  Future<List<ElectricityReading>> getReadingsByDateRange(
-    DateTime startDate,
-    DateTime endDate,
-  );
-  Future<List<ElectricityReading>> searchReadings(String query);
   Future<int> getReadingsCount({String? houseId, String? cycleId});
-
-  // Sync operations
-  Future<List<ElectricityReading>> getReadingsNeedingSync();
-  Future<void> markReadingAsSynced(String id);
-  Future<bool> hasDataNeedingSync();
-  Future<DateTime?> getLastSyncTime();
 
   // Analytics operations
   Future<double> getTotalConsumptionForCycle(String cycleId);
   Future<double> getTotalCostForCycle(String cycleId);
   Future<double> getAverageConsumptionForHouse(String houseId);
-  Future<Map<String, double>> getMonthlyConsumption(String houseId, int year);
   Future<Map<String, dynamic>> getReadingStatistics(String cycleId);
   Future<double> getDailyAverageConsumption(String cycleId);
-  Future<List<Map<String, dynamic>>> getConsumptionTrend(
-    String houseId,
-    int days,
-  );
 }

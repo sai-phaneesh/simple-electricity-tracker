@@ -1,7 +1,7 @@
 import 'package:electricity/core/providers/app_providers.dart';
 import 'package:electricity/core/router/app_router.dart';
 import 'package:electricity/core/utils/extensions/strings.dart';
-import 'package:electricity/data/database/database.dart';
+import 'package:electricity/domain/entities/house.dart';
 import 'package:electricity/presentation/shared/widgets/delete_confirmation_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +12,7 @@ class AppDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedHouse = ref.watch(selectedHouseProvider).valueOrNull;
+    final selectedHouse = ref.watch(selectedHouseProvider).value;
 
     return Drawer(
       child: SafeArea(

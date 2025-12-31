@@ -1,4 +1,4 @@
-import 'package:electricity/data/database/database.dart';
+import 'package:electricity/domain/entities/house.dart';
 
 /// Abstract repository interface for house operations
 /// Repositories coordinate between multiple datasources and implement business logic
@@ -26,17 +26,7 @@ abstract class HousesRepository {
   Future<int> getHousesCount();
   Future<House?> getHouseWithActiveContacts();
 
-  // Sync operations
-  Future<List<House>> getHousesNeedingSync();
-  Future<void> markHouseAsSynced(String id);
-  Future<bool> hasDataNeedingSync();
-  Future<DateTime?> getLastSyncTime();
-
   // Analytics operations
   Future<Map<String, dynamic>> getHouseStatistics(String houseId);
   Future<double> getTotalCostForHouse(String houseId);
-  Future<Map<String, double>> getMonthlySpendingForHouse(
-    String houseId,
-    int year,
-  );
 }

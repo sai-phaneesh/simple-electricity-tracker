@@ -98,7 +98,7 @@ class _CreateCycleScreenState extends ConsumerState<CreateCycleScreen> {
                           builder: (context) {
                             final selectedHouse = ref
                                 .watch(selectedHouseProvider)
-                                .valueOrNull;
+                                .value;
                             if (selectedHouse != null) {
                               return const SizedBox.shrink();
                             }
@@ -326,7 +326,7 @@ class _CreateCycleScreenState extends ConsumerState<CreateCycleScreen> {
 
                                 final selectedHouse = ref
                                     .read(selectedHouseProvider)
-                                    .valueOrNull;
+                                    .value;
                                 if (!isEditMode && selectedHouse == null) {
                                   context.showFlushbar(
                                     'Please select or create a house first',

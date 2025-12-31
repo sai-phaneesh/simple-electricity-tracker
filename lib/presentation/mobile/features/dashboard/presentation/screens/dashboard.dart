@@ -18,7 +18,7 @@ class _DashboardState extends ConsumerState<Dashboard> {
   @override
   Widget build(BuildContext context) {
     final selectedHouseAsync = ref.watch(selectedHouseProvider);
-    final selectedHouse = selectedHouseAsync.valueOrNull;
+    final selectedHouse = selectedHouseAsync.value;
     final selectedCycleAsync = ref.watch(selectedCycleProvider);
 
     return Column(

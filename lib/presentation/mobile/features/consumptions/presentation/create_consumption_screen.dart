@@ -3,7 +3,7 @@ import 'package:electricity/core/utils/extensions/toast.dart';
 import 'package:electricity/core/utils/formatters/meter_reading_input_formatter.dart';
 import 'package:electricity/core/utils/formatters/number_formatter.dart';
 import 'package:electricity/core/utils/helpers/focus_remove_wrapper.dart';
-import 'package:electricity/data/database/database.dart';
+import 'package:electricity/domain/entities/electricity_reading.dart';
 import 'package:electricity/presentation/shared/widgets/actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
