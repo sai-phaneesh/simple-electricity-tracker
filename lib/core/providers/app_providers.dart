@@ -91,6 +91,15 @@ final readingsForSelectedCycleStreamProvider =
           .watchReadingsByCycleId(selectedCycleId);
     });
 
+/// Provider to fetch a cycle by ID (for edit screens)
+final cycleByIdProvider = FutureProvider.family<Cycle?, String>((
+  ref,
+  cycleId,
+) async {
+  final repository = ref.watch(cyclesRepositoryProvider);
+  return repository.getCycleById(cycleId);
+});
+
 /// Selected house + cycle state
 final selectedHouseIdProvider =
     NotifierProvider<SelectedHouseIdNotifier, String?>(
@@ -180,6 +189,8 @@ class HousesController {
       defaultPricePerUnit: defaultPricePerUnit,
     );
 
+    // Invalidate to refresh the stream immediately
+    _ref.invalidate(housesStreamProvider);
     _ref.read(selectedHouseIdProvider.notifier).setHouse(id);
     return id;
   }
@@ -198,10 +209,15 @@ class HousesController {
       meterNumber: meterNumber,
       defaultPricePerUnit: defaultPricePerUnit,
     );
+    // Invalidate to refresh the stream immediately
+    _ref.invalidate(housesStreamProvider);
   }
 
   Future<void> deleteHouse(String id) async {
     await _repository.deleteHouse(id);
+
+    // Invalidate to refresh the stream immediately
+    _ref.invalidate(housesStreamProvider);
 
     final selectedId = _ref.read(selectedHouseIdProvider);
     if (selectedId == id) {
@@ -239,6 +255,8 @@ class CyclesController {
       notes: notes,
     );
 
+    // Invalidate to refresh the stream immediately
+    _ref.invalidate(cyclesForSelectedHouseStreamProvider);
     _ref.read(selectedCycleIdProvider.notifier).setCycle(id);
     return id;
   }
@@ -265,10 +283,23 @@ class CyclesController {
       isActive: isActive,
       notes: notes,
     );
+    // Invalidate to refresh the stream immediately
+    _ref.invalidate(cyclesForSelectedHouseStreamProvider);
+    // Invalidate the specific cycle provider so edit screens get fresh data
+    _ref.invalidate(cycleByIdProvider);
+
+    // Also invalidate readings if price or initial reading changed
+    // (readings are recalculated in the repository)
+    if (pricePerUnit != null || initialMeterReading != null) {
+      _ref.invalidate(readingsForSelectedCycleStreamProvider);
+    }
   }
 
   Future<void> deleteCycle(String id) async {
     await _repository.deleteCycle(id);
+
+    // Invalidate to refresh the stream immediately
+    _ref.invalidate(cyclesForSelectedHouseStreamProvider);
 
     final selectedId = _ref.read(selectedCycleIdProvider);
     if (selectedId == id) {
@@ -278,8 +309,9 @@ class CyclesController {
 }
 
 class ElectricityReadingsController {
-  ElectricityReadingsController(this._repository);
+  ElectricityReadingsController(this._ref, this._repository);
 
+  final Ref _ref;
   final ElectricityReadingsRepository _repository;
 
   Future<String> createReading({
@@ -301,6 +333,8 @@ class ElectricityReadingsController {
       notes: notes,
     );
 
+    // Invalidate to refresh the stream immediately
+    _ref.invalidate(readingsForSelectedCycleStreamProvider);
     return id;
   }
 
@@ -320,10 +354,14 @@ class ElectricityReadingsController {
       totalCost: totalCost,
       notes: notes,
     );
+    // Invalidate to refresh the stream immediately
+    _ref.invalidate(readingsForSelectedCycleStreamProvider);
   }
 
   Future<void> deleteReading(String id) async {
     await _repository.deleteReading(id);
+    // Invalidate to refresh the stream immediately
+    _ref.invalidate(readingsForSelectedCycleStreamProvider);
   }
 }
 
@@ -338,6 +376,7 @@ final cyclesControllerProvider = Provider<CyclesController>((ref) {
 final electricityReadingsControllerProvider =
     Provider<ElectricityReadingsController>((ref) {
       return ElectricityReadingsController(
+        ref,
         ref.watch(electricityReadingsRepositoryProvider),
       );
     });

@@ -1,10 +1,16 @@
+// ignore_for_file: deprecated_member_use
+import 'dart:convert';
 import 'dart:io';
+import 'package:electricity/core/providers/supabase_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:electricity/core/providers/export_import_providers.dart';
+import 'package:electricity/core/utils/extensions/toast.dart';
 import 'package:electricity/data/services/export/export_data_model.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// Export screen with progress and file sharing options
 class ExportScreen extends ConsumerStatefulWidget {
@@ -21,6 +27,17 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   bool _obscureConfirm = true;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Ensure a fresh export state when opening the screen
+      ref.read(exportNotifierProvider.notifier).reset();
+      _passphraseController.clear();
+      _confirmPassphraseController.clear();
+    });
+  }
+
+  @override
   void dispose() {
     _passphraseController.dispose();
     _confirmPassphraseController.dispose();
@@ -29,25 +46,16 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
 
   void _startExport() {
     if (_passphraseController.text.length < 8) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Passphrase must be at least 8 characters'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      context.showWarning('Passphrase must be at least 8 characters');
       return;
     }
 
     if (_passphraseController.text != _confirmPassphraseController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Passphrases do not match'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      context.showWarning('Passphrases do not match');
       return;
     }
 
+    context.showInfo('Exporting data...');
     ref
         .read(exportNotifierProvider.notifier)
         .exportData(_passphraseController.text);
@@ -277,14 +285,17 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () async {
-                        final path = await ref
+                        final result = await ref
                             .read(exportNotifierProvider.notifier)
                             .saveToFile();
-                        if (path != null && mounted) {
+                        if (result != null && mounted && context.mounted) {
+                          final message = result.usedFallback
+                              ? 'Saved to app documents folder: ${result.path} — use Share to save elsewhere.'
+                              : 'Saved to: ${result.path}';
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Saved to: $path'),
-                              duration: const Duration(seconds: 5),
+                              content: Text(message),
+                              duration: const Duration(seconds: 6),
                             ),
                           );
                         }
@@ -313,15 +324,21 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                       .getExportContent();
                   if (content != null) {
                     await Clipboard.setData(ClipboardData(text: content));
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Copied to clipboard')),
-                      );
-                    }
                   }
                 },
                 icon: const Icon(Icons.copy),
                 label: const Text('Copy to Clipboard'),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: FilledButton(
+                  onPressed: () {
+                    // Reset export state and close screen
+                    ref.read(exportNotifierProvider.notifier).reset();
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Done'),
+                ),
               ),
             ],
           ],
@@ -352,10 +369,27 @@ class ImportScreen extends ConsumerStatefulWidget {
   ConsumerState<ImportScreen> createState() => _ImportScreenState();
 }
 
+class _BackupItem {
+  final String path;
+  final String name;
+  final Map<String, dynamic>? metadata;
+  _BackupItem({required this.path, required this.name, this.metadata});
+}
+
 class _ImportScreenState extends ConsumerState<ImportScreen> {
   final _passphraseController = TextEditingController();
   bool _obscurePassphrase = true;
   ImportMode _selectedMode = ImportMode.mergeSkip;
+
+  @override
+  void initState() {
+    super.initState();
+    // Ensure any leftover import state is cleared when the screen is opened
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(importNotifierProvider.notifier).reset();
+      _passphraseController.clear();
+    });
+  }
 
   @override
   void dispose() {
@@ -363,41 +397,578 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     super.dispose();
   }
 
+  String? _selectedFilePath;
+  bool _allowCrossUserImport = false;
+
+  /// Show picker options: system file picker or scan known folders for backups
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      allowMultiple: false,
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (c) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.folder_open),
+            title: const Text('Pick from system file picker'),
+            onTap: () => Navigator.of(c).pop('system'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.storage),
+            title: const Text('Show backups on device'),
+            onTap: () => Navigator.of(c).pop('list'),
+          ),
+        ],
+      ),
     );
 
-    if (result != null && result.files.single.path != null) {
-      final file = File(result.files.single.path!);
-      final content = await file.readAsString();
-      ref.read(importNotifierProvider.notifier).setFileContent(content);
+    if (choice == 'system') {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final file = File(result.files.single.path!);
+        final content = await file.readAsString();
+        if (content.isEmpty) {
+          context.showError('Selected backup file is empty');
+          return;
+        }
+
+        final ok = await _checkAndConfirmCrossUser(content);
+        if (ok) {
+          ref.read(importNotifierProvider.notifier).setFileContent(content);
+          setState(() {
+            _selectedFilePath = file.path;
+          });
+          if (mounted && context.mounted) {
+            // File selected and stored in provider; no transient SnackBar needed
+          }
+        }
+      }
+    } else if (choice == 'list') {
+      await _showBackupsList();
     }
   }
 
-  void _previewImport() {
-    if (_passphraseController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter the passphrase'),
-          backgroundColor: Colors.red,
+  /// Check metadata and show a confirmation dialog if the backup belongs to another user
+  Future<bool> _checkAndConfirmCrossUser(String content) async {
+    final metadata = _parseMetadata(content);
+    final currentUser = ref.read(currentUserProvider);
+
+    // No metadata or no logged in user -> allow
+    if (metadata == null || currentUser == null) {
+      return true;
+    }
+
+    final ownerId = metadata['userId'] as String?;
+
+    // Only compare user IDs. If ownerId is missing, allow (no warning).
+    if (ownerId == null) return true;
+
+    final ownerIdNorm = ownerId.trim();
+    final currentUserIdNorm = currentUser.id.trim();
+    final matchesUser =
+        ownerIdNorm.isNotEmpty &&
+        currentUserIdNorm.isNotEmpty &&
+        ownerIdNorm == currentUserIdNorm;
+
+    if (!matchesUser) {
+      final allow = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Import from different user'),
+          content: Text(
+            'This backup appears to belong to ${metadata['userEmail'] ?? ownerId ?? 'another user'}.\n'
+            'Importing it may mix another user\'s data into your account.\nDo you want to continue?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(c).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(c).pop(true),
+              child: const Text('Import Anyway'),
+            ),
+          ],
         ),
       );
-      return;
+
+      if (allow == true) {
+        setState(() {
+          _allowCrossUserImport = true;
+        });
+        return true;
+      }
+      return false;
     }
-    ref
-        .read(importNotifierProvider.notifier)
-        .previewImport(_passphraseController.text);
+
+    return true;
   }
 
-  void _performImport() {
-    ref
-        .read(importNotifierProvider.notifier)
-        .performImport(
-          passphrase: _passphraseController.text,
-          mode: _selectedMode,
+  Map<String, dynamic>? _parseMetadata(String content) {
+    try {
+      final json = jsonDecode(content) as Map<String, dynamic>;
+      final metadataJson = json['metadata'] as String?;
+      if (metadataJson != null) {
+        return jsonDecode(metadataJson) as Map<String, dynamic>;
+      }
+    } catch (_) {
+      // ignore
+    }
+    return null;
+  }
+
+  Future<void> _showBackupsList() async {
+    // Show progress while scanning
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final backups = await _scanForBackups();
+
+    if (mounted) Navigator.of(context).pop(); // remove progress
+
+    if (backups.isEmpty) {
+      context.showInfo('No backups found in known folders');
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Backups found'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: backups.length,
+            itemBuilder: (context, index) {
+              final b = backups[index];
+              final meta = b.metadata;
+              return ListTile(
+                leading: const Icon(Icons.insert_drive_file),
+                title: Text(b.name),
+                subtitle: Text(
+                  'From: ${meta?['userEmail'] ?? 'Unknown'}\nDate: ${meta?['exportedAt'] ?? 'Unknown'}',
+                ),
+                trailing: TextButton(
+                  onPressed: () async {
+                    try {
+                      final content = await File(b.path).readAsString();
+                      final ok = await _checkAndConfirmCrossUser(content);
+                      if (ok) {
+                        ref
+                            .read(importNotifierProvider.notifier)
+                            .setFileContent(content);
+                        setState(() => _selectedFilePath = b.path);
+                        if (mounted) Navigator.of(context).pop();
+                        // File selected and stored in provider; no transient SnackBar needed
+                      }
+                    } catch (e) {
+                      context.showError('Failed to read file: $e');
+                    }
+                  },
+                  child: const Text('Select'),
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(c).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Ensure storage permission on Android with rationale and settings fallback
+  Future<bool> _ensureStoragePermission() async {
+    try {
+      final status = await Permission.storage.status;
+
+      if (status.isGranted) return true;
+
+      if (status.isPermanentlyDenied) {
+        final open = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: const Text('Storage permission required'),
+            content: const Text(
+              'Storage access is required to scan your Downloads folder for backups.\nOpen app settings to grant permission?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(c).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(c).pop(true),
+                child: const Text('Open Settings'),
+              ),
+            ],
+          ),
         );
+        if (open == true) await openAppSettings();
+        return false;
+      }
+
+      // Show rationale before requesting
+      final allow = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Allow storage access?'),
+          content: const Text(
+            'To help you import backups from your device, the app needs temporary access to storage so it can scan common folders (Downloads).\nDo you want to grant access?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(c).pop(false),
+              child: const Text('No'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(c).pop(true),
+              child: const Text('Yes'),
+            ),
+          ],
+        ),
+      );
+
+      if (allow != true) {
+        if (mounted) {
+          context.showInfo(
+            'Storage permission denied - cannot scan Downloads for backups. Use system picker or copy files into app Documents.',
+          );
+        }
+        return false;
+      }
+
+      final result = await Permission.storage.request();
+      if (result.isGranted) return true;
+
+      if (result.isPermanentlyDenied) {
+        final open = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: const Text('Storage permission required'),
+            content: const Text(
+              'Permission permanently denied. Open app settings to grant access.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(c).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(c).pop(true),
+                child: const Text('Open Settings'),
+              ),
+            ],
+          ),
+        );
+        if (open == true) await openAppSettings();
+      } else {
+        if (mounted) {
+          context.showInfo(
+            'Storage permission denied - cannot scan Downloads for backups.',
+          );
+        }
+      }
+
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<_BackupItem>> _scanForBackups() async {
+    final dirs = <Directory>{};
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      dirs.add(docs);
+    } catch (_) {}
+    try {
+      final temp = await getTemporaryDirectory();
+      dirs.add(temp);
+    } catch (_) {}
+    try {
+      final ext = await getExternalStorageDirectory();
+      if (ext != null) dirs.add(ext);
+    } catch (_) {}
+
+    if (Platform.isAndroid) {
+      try {
+        final allowed = await _ensureStoragePermission();
+        if (allowed) {
+          final downloads = Directory('/storage/emulated/0/Download');
+          if (downloads.existsSync()) dirs.add(downloads);
+        }
+      } catch (_) {
+        // ignore
+      }
+    } else {
+      try {
+        final downloads = await getDownloadsDirectory();
+        if (downloads != null) dirs.add(downloads);
+      } catch (_) {}
+    }
+
+    final results = <_BackupItem>[];
+    for (final d in dirs) {
+      try {
+        await for (final entity in d.list(
+          recursive: true,
+          followLinks: false,
+        )) {
+          if (entity is File && entity.path.toLowerCase().endsWith('.json')) {
+            try {
+              final content = await entity.readAsString();
+              final meta = _parseMetadata(content);
+              if (meta != null) {
+                results.add(
+                  _BackupItem(
+                    path: entity.path,
+                    name: entity.uri.pathSegments.last,
+                    metadata: meta,
+                  ),
+                );
+              }
+            } catch (_) {
+              // ignore broken files
+            }
+          }
+        }
+      } catch (_) {
+        // ignore unreadable directories
+      }
+    }
+
+    // Sort by name (or could sort by date if metadata has date)
+    results.sort((a, b) => b.name.compareTo(a.name));
+    return results;
+  }
+
+  void _previewImport() async {
+    if (_passphraseController.text.isEmpty) {
+      context.showError('Please enter the passphrase');
+      return;
+    }
+
+    // Check cross-user confirmation before validating
+    final metadata = ref.read(importNotifierProvider.notifier).parseMetadata();
+    final currentUser = ref.read(currentUserProvider);
+    final ownerEmail = metadata?['userEmail'] as String?;
+    final ownerId = metadata?['userId'] as String?;
+
+    // Only compare user IDs. If no ownerId is present, allow (no warning).
+    final ownerIdNorm = ownerId?.trim() ?? '';
+    final currentUserIdNorm = currentUser != null ? currentUser.id.trim() : '';
+    final matchesUser =
+        ownerIdNorm.isNotEmpty &&
+        currentUserIdNorm.isNotEmpty &&
+        ownerIdNorm == currentUserIdNorm;
+
+    if (metadata != null &&
+        currentUser != null &&
+        ownerId != null &&
+        !matchesUser &&
+        !_allowCrossUserImport) {
+      final allow = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Import from different user'),
+          content: Text(
+            'This backup belongs to $ownerEmail.\nImporting it may mix another user\'s data into your account.\nDo you want to continue?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(c).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(c).pop(true),
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      );
+
+      if (allow != true) return;
+      setState(() => _allowCrossUserImport = true);
+    }
+
+    // Show blocking loading dialog while validating (prevents UI freeze)
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await ref
+          .read(importNotifierProvider.notifier)
+          .previewImport(_passphraseController.text);
+    } catch (e) {
+      if (mounted && context.mounted) {
+        if (Navigator.canPop(context)) Navigator.of(context).pop();
+        context.showError('Preview failed: $e', title: 'Validation failed');
+      }
+      return;
+    } finally {
+      if (mounted && context.mounted && Navigator.canPop(context)) {
+        Navigator.of(context).pop();
+      }
+    }
+
+    // Show feedback after validation completes
+    if (!mounted) return;
+
+    try {
+      final importState = ref.read(importNotifierProvider);
+
+      if (importState.validationResult?.isValid == true) {
+        if (mounted && context.mounted) {
+          context.showSuccess('Validation successful', title: 'File is valid');
+        }
+      } else if (importState.error != null) {
+        if (mounted && context.mounted) {
+          context.showError(importState.error!, title: 'Validation failed');
+        }
+      }
+    } catch (e) {
+      if (mounted && context.mounted) {
+        context.showError('Validation failed: $e', title: 'Validation failed');
+      }
+    }
+  }
+
+  void _performImport() async {
+    if (!context.mounted) return;
+
+    // Double-check cross-user confirmation before importing
+    final metadata = ref.read(importNotifierProvider.notifier).parseMetadata();
+    final currentUser = ref.read(currentUserProvider);
+    final ownerEmail = metadata?['userEmail'] as String?;
+    final ownerId = metadata?['userId'] as String?;
+
+    final ownerIdNorm = ownerId?.trim() ?? '';
+    final currentUserIdNorm = currentUser != null ? currentUser.id.trim() : '';
+    final matchesUser =
+        ownerIdNorm.isNotEmpty &&
+        currentUserIdNorm.isNotEmpty &&
+        ownerIdNorm == currentUserIdNorm;
+
+    if (metadata != null &&
+        currentUser != null &&
+        ownerId != null &&
+        !matchesUser &&
+        !_allowCrossUserImport) {
+      final allow = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Import from different user'),
+          content: Text(
+            'This backup belongs to $ownerEmail.\nImporting it may mix another user\'s data into your account.\nDo you want to continue?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(c).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(c).pop(true),
+              child: const Text('Import Anyway'),
+            ),
+          ],
+        ),
+      );
+
+      if (allow != true) return;
+      setState(() => _allowCrossUserImport = true);
+    }
+
+    var importStateBefore = ref.read(importNotifierProvider);
+
+    // If provider has no file content, attempt to re-read from selected path
+    if ((importStateBefore.fileContent == null ||
+            importStateBefore.fileContent!.isEmpty) &&
+        _selectedFilePath != null) {
+      try {
+        final f = File(_selectedFilePath!);
+        if (await f.exists()) {
+          final reRead = await f.readAsString();
+          if (reRead.isNotEmpty) {
+            ref.read(importNotifierProvider.notifier).setFileContent(reRead);
+            importStateBefore = ref.read(importNotifierProvider);
+          }
+        }
+      } catch (_) {
+        // ignore read failures silently for now
+      }
+    }
+
+    // If content is still empty after attempting a re-read, abort with an error
+    if (importStateBefore.fileContent == null ||
+        importStateBefore.fileContent!.isEmpty) {
+      if (mounted && context.mounted) {
+        context.showError(
+          'Selected backup file is empty or could not be read',
+          title: 'Import failed',
+        );
+      }
+      return;
+    }
+
+    context.showInfo('Importing data...');
+
+    // Show blocking loading dialog while importing (prevents UI freeze)
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await ref
+          .read(importNotifierProvider.notifier)
+          .performImport(
+            passphrase: _passphraseController.text,
+            mode: _selectedMode,
+          );
+    } catch (e) {
+      if (mounted && context.mounted) {
+        if (Navigator.canPop(context)) Navigator.of(context).pop();
+        context.showError('Import failed: $e', title: 'Import failed');
+      }
+      return;
+    } finally {
+      if (mounted && context.mounted && Navigator.canPop(context))
+        Navigator.of(context).pop();
+    }
+
+    // Show feedback after import completes
+    if (!mounted) return;
+
+    final importState = ref.read(importNotifierProvider);
+
+    if (importState.importResult?.isSuccess == true) {
+      if (mounted && context.mounted) {
+        context.showSuccess(
+          'Data imported successfully',
+          title: 'Import complete',
+        );
+      }
+    } else if (importState.error != null) {
+      if (mounted && context.mounted) {
+        context.showError(importState.error!, title: 'Import failed');
+      }
+    }
   }
 
   @override
@@ -450,7 +1021,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Import will modify your Supabase database. Make sure you have '
+                      'Import will modify your database. Make sure you have '
                       'a backup of your current data if needed. Choose the import mode carefully.',
                     ),
                   ],
@@ -483,9 +1054,12 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                           .read(importNotifierProvider.notifier)
                           .parseMetadata();
                       if (metadata != null) {
+                        final pathInfo = _selectedFilePath != null
+                            ? '\nPath: ${_selectedFilePath}'
+                            : '';
                         return Text(
                           'From: ${metadata['userEmail'] ?? 'Unknown'}\n'
-                          'Date: ${metadata['exportedAt'] ?? 'Unknown'}',
+                          'Date: ${metadata['exportedAt'] ?? 'Unknown'}$pathInfo',
                         );
                       }
                       return const Text('Ready to validate');
@@ -827,7 +1401,11 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                       ),
                       const SizedBox(height: 16),
                       FilledButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () {
+                          // Clear import state when finishing
+                          ref.read(importNotifierProvider.notifier).reset();
+                          Navigator.of(context).pop();
+                        },
                         child: const Text('Done'),
                       ),
                     ],
@@ -941,7 +1519,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         child: Row(
           children: [
-            Radio<ImportMode>(
+            Radio<ImportMode>.adaptive(
               value: value,
               groupValue: _selectedMode,
               onChanged: (v) => setState(() => _selectedMode = v!),

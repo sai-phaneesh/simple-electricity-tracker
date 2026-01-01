@@ -82,6 +82,15 @@ class CyclesRepositoryImpl implements CyclesRepository {
       throw Exception('Cycle not found');
     }
 
+    // Check if we need to recalculate readings BEFORE updating
+    // (compare with existing values, not just check if parameters are non-null)
+    final priceChanged =
+        pricePerUnit != null && pricePerUnit != existingCycle.pricePerUnit;
+    final initialReadingChanged =
+        initialMeterReading != null &&
+        initialMeterReading != existingCycle.initialMeterReading;
+    final needsRecalculation = priceChanged || initialReadingChanged;
+
     if (isActive == true) {
       // If making this cycle active, deactivate other active cycles for the house
       await _cyclesDataSource.deactivateOtherCycles(existingCycle.houseId, id);
@@ -101,10 +110,7 @@ class CyclesRepositoryImpl implements CyclesRepository {
 
     await _cyclesDataSource.updateCycle(updatedCycle);
 
-    // Check if we need to recalculate readings (when pricePerUnit or initialMeterReading changes)
-    final needsRecalculation =
-        pricePerUnit != null || initialMeterReading != null;
-
+    // Recalculate readings if price or initial meter reading actually changed
     if (needsRecalculation) {
       await _recalculateReadingsForCycle(id);
     }
@@ -117,11 +123,14 @@ class CyclesRepositoryImpl implements CyclesRepository {
     final cycle = await getCycleById(cycleId);
     if (cycle == null) return;
 
-    // Get all readings for this cycle ordered by date
+    // Get all readings for this cycle and sort by date (oldest first)
     final readings = await _readingsDataSource.getReadingsByCycleId(cycleId);
     if (readings.isEmpty) return;
 
-    // Recalculate each reading
+    // Sort readings by date (oldest first) to ensure correct calculation order
+    readings.sort((a, b) => a.date.compareTo(b.date));
+
+    // Recalculate each reading in chronological order
     double previousReading = cycle.initialMeterReading;
 
     for (final reading in readings) {

@@ -47,7 +47,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         );
       }
     } catch (e) {
-      print(e);
       setState(() {
         _errorMessage = e.toString().replaceAll('AuthException: ', '');
       });

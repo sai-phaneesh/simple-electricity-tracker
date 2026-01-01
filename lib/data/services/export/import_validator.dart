@@ -12,125 +12,140 @@ class ImportValidator {
   Future<ImportValidationResult> validate({
     required ExportPackage package,
     required String currentUserId,
+    String? currentUserEmail,
     required HousesDataSource housesDataSource,
     required CyclesDataSource cyclesDataSource,
     required ElectricityReadingsDataSource readingsDataSource,
   }) async {
-    final errors = <ValidationError>[];
-    final warnings = <ValidationWarning>[];
+    try {
+      final errors = <ValidationError>[];
+      final warnings = <ValidationWarning>[];
 
-    // 1. Validate magic header
-    if (package.magic != kExportMagicHeader) {
-      errors.add(
-        ValidationError(
-          type: ValidationErrorType.invalidMagicHeader,
-          message: 'Invalid file format: magic header mismatch',
-          invalidValue: package.magic,
-        ),
-      );
-    }
-
-    // 2. Validate version
-    if (package.version > kExportFormatVersion) {
-      errors.add(
-        ValidationError(
-          type: ValidationErrorType.unsupportedVersion,
-          message:
-              'Export version ${package.version} is not supported. '
-              'Please update the app to import this file.',
-          invalidValue: package.version,
-        ),
-      );
-    }
-
-    // 3. Validate metadata counts match actual data
-    final metadataCountErrors = _validateMetadataCounts(package);
-    errors.addAll(metadataCountErrors);
-
-    // 4. Validate payload checksum (if available)
-    if (package.metadata.payloadChecksum.isNotEmpty) {
-      final checksumValid = _validatePayloadChecksum(package);
-      if (!checksumValid) {
+      // 1. Validate magic header
+      if (package.magic != kExportMagicHeader) {
         errors.add(
           ValidationError(
-            type: ValidationErrorType.checksumMismatch,
-            message: 'Data integrity check failed: payload checksum mismatch',
+            type: ValidationErrorType.invalidMagicHeader,
+            message: 'Invalid file format: magic header mismatch',
+            invalidValue: package.magic,
           ),
         );
       }
-    }
 
-    // 5. Validate all houses
-    for (var i = 0; i < package.payload.houses.length; i++) {
-      final houseErrors = _validateHouse(package.payload.houses[i], i);
-      errors.addAll(houseErrors);
-    }
+      // 2. Validate version
+      if (package.version > kExportFormatVersion) {
+        errors.add(
+          ValidationError(
+            type: ValidationErrorType.unsupportedVersion,
+            message:
+                'Export version ${package.version} is not supported. '
+                'Please update the app to import this file.',
+            invalidValue: package.version,
+          ),
+        );
+      }
 
-    // 6. Validate all cycles
-    final houseIds = package.payload.houses.map((h) => h.id).toSet();
-    for (var i = 0; i < package.payload.cycles.length; i++) {
-      final cycleErrors = _validateCycle(
-        package.payload.cycles[i],
-        i,
-        houseIds,
+      // 3. Validate metadata counts match actual data
+      final metadataCountErrors = _validateMetadataCounts(package);
+      errors.addAll(metadataCountErrors);
+
+      // 4. Validate payload checksum (if available)
+      if (package.metadata.payloadChecksum.isNotEmpty) {
+        final checksumValid = _validatePayloadChecksum(package);
+        if (!checksumValid) {
+          errors.add(
+            ValidationError(
+              type: ValidationErrorType.checksumMismatch,
+              message: 'Data integrity check failed: payload checksum mismatch',
+            ),
+          );
+        }
+      }
+
+      // 5. Validate all houses
+      for (var i = 0; i < package.payload.houses.length; i++) {
+        final houseErrors = _validateHouse(package.payload.houses[i], i);
+        errors.addAll(houseErrors);
+      }
+
+      // 6. Validate all cycles
+      final houseIds = package.payload.houses.map((h) => h.id).toSet();
+      for (var i = 0; i < package.payload.cycles.length; i++) {
+        final cycleErrors = _validateCycle(
+          package.payload.cycles[i],
+          i,
+          houseIds,
+        );
+        errors.addAll(cycleErrors);
+      }
+
+      // 7. Validate all readings
+      final cycleIds = package.payload.cycles.map((c) => c.id).toSet();
+      for (var i = 0; i < package.payload.readings.length; i++) {
+        final readingErrors = _validateReading(
+          package.payload.readings[i],
+          i,
+          houseIds,
+          cycleIds,
+        );
+        errors.addAll(readingErrors);
+      }
+
+      // 8. Check for duplicate IDs
+      final duplicateErrors = _checkDuplicateIds(package);
+      errors.addAll(duplicateErrors);
+
+      // 9. Validate referential integrity
+      final integrityErrors = _validateReferentialIntegrity(package);
+      errors.addAll(integrityErrors);
+
+      // 10. Check for user mismatch (warning only) — compare only user IDs
+      final packageUserId = package.metadata.userId.trim();
+      final normalizedCurrentUserId = currentUserId.trim();
+
+      if (packageUserId.isNotEmpty &&
+          normalizedCurrentUserId.isNotEmpty &&
+          packageUserId != normalizedCurrentUserId) {
+        warnings.add(
+          ValidationWarning(
+            message:
+                'This backup was created by a different user '
+                '(${package.metadata.userEmail})',
+            suggestion: 'The data will be imported into your account',
+          ),
+        );
+      }
+
+      // 11. Determine what will be created/updated
+      final summary = await _calculateImportSummary(
+        package: package,
+        housesDataSource: housesDataSource,
+        cyclesDataSource: cyclesDataSource,
+        readingsDataSource: readingsDataSource,
       );
-      errors.addAll(cycleErrors);
-    }
 
-    // 7. Validate all readings
-    final cycleIds = package.payload.cycles.map((c) => c.id).toSet();
-    for (var i = 0; i < package.payload.readings.length; i++) {
-      final readingErrors = _validateReading(
-        package.payload.readings[i],
-        i,
-        houseIds,
-        cycleIds,
-      );
-      errors.addAll(readingErrors);
-    }
+      if (errors.isNotEmpty) {
+        return ImportValidationResult(
+          isValid: false,
+          errors: errors,
+          warnings: warnings,
+        );
+      }
 
-    // 8. Check for duplicate IDs
-    final duplicateErrors = _checkDuplicateIds(package);
-    errors.addAll(duplicateErrors);
-
-    // 9. Validate referential integrity
-    final integrityErrors = _validateReferentialIntegrity(package);
-    errors.addAll(integrityErrors);
-
-    // 10. Check for user mismatch (warning only)
-    if (package.metadata.userId != currentUserId) {
-      warnings.add(
-        ValidationWarning(
-          message:
-              'This backup was created by a different user '
-              '(${package.metadata.userEmail})',
-          suggestion: 'The data will be imported into your account',
-        ),
-      );
-    }
-
-    // 11. Determine what will be created/updated
-    final summary = await _calculateImportSummary(
-      package: package,
-      housesDataSource: housesDataSource,
-      cyclesDataSource: cyclesDataSource,
-      readingsDataSource: readingsDataSource,
-    );
-
-    if (errors.isNotEmpty) {
       return ImportValidationResult(
-        isValid: false,
-        errors: errors,
+        isValid: true,
+        errors: [],
         warnings: warnings,
+        summary: summary,
       );
+    } catch (e) {
+      return ImportValidationResult.failure([
+        ValidationError(
+          type: ValidationErrorType.corruptedData,
+          message: 'Validation failed: $e',
+        ),
+      ]);
     }
-
-    return ImportValidationResult(
-      isValid: true,
-      errors: [],
-      warnings: warnings,
-      summary: summary,
-    );
   }
 
   /// Validate that metadata counts match actual data

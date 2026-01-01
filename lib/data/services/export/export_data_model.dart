@@ -43,6 +43,7 @@ class ExportPackage extends Equatable {
     required String signature,
     required String userId,
     required String userEmail,
+    String? payloadChecksum,
   }) {
     return ExportPackage(
       magic: kExportMagicHeader,
@@ -53,6 +54,7 @@ class ExportPackage extends Equatable {
         housesCount: payload.houses.length,
         cyclesCount: payload.cycles.length,
         readingsCount: payload.readings.length,
+        payloadChecksum: payloadChecksum,
       ),
       payload: payload,
       signature: signature,

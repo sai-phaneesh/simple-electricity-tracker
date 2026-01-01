@@ -7,10 +7,7 @@
 ///
 /// IMPORTANT: In production, use environment variables or a secure config file
 class SupabaseConfig {
-  // TODO: Replace these with your actual Supabase credentials
-  // Get them from: https://supabase.com/dashboard/project/_/settings/api
-  static const String supabaseUrl =
-      'https://qllihzwtdnvkecswzypi.supabase.co'; // e.g., 'https://xxxxx.supabase.co'
+  static const String supabaseUrl = 'https://qllihzwtdnvkecswzypi.supabase.co';
   static const String supabaseAnonKey =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsbGloend0ZG52a2Vjc3d6eXBpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyNTU0OTMsImV4cCI6MjA3NDgzMTQ5M30.P3mRtY31kn4DqH3_99KgY7XSQqUsn12QfiWniROoWPM'; // Your anon/public key
 

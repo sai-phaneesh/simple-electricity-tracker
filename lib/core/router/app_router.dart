@@ -1,9 +1,10 @@
 import 'package:electricity/core/providers/app_providers.dart';
 import 'package:electricity/core/providers/supabase_provider.dart';
-import 'package:electricity/domain/entities/electricity_reading.dart';
 import 'package:electricity/presentation/mobile/features/auth/auth_screen.dart';
 import 'package:electricity/presentation/mobile/features/consumptions/presentation/create_consumption_screen.dart';
+import 'package:electricity/presentation/mobile/features/consumptions/presentation/edit_consumption_screen.dart';
 import 'package:electricity/presentation/mobile/features/cycles/presentation/screens/create_cycle_screen.dart';
+import 'package:electricity/presentation/mobile/features/cycles/presentation/screens/edit_cycle_screen.dart';
 import 'package:electricity/presentation/mobile/features/dashboard/presentation/screens/dashboard.dart';
 import 'package:electricity/presentation/mobile/features/settings/pages/settings_screen.dart';
 import 'package:electricity/presentation/shared/widgets/app_drawer.dart';
@@ -16,7 +17,8 @@ abstract class AppRouteNames {
   static const dashboard = 'dashboard';
   static const createCycle = 'create-cycle';
   static const editCycle = 'edit-cycle';
-  static const createConsumption = '/create-consumption';
+  static const createConsumption = 'create-consumption';
+  static const editConsumption = 'edit-consumption';
   static const about = 'about';
   static const settings = '/settings';
 }
@@ -44,7 +46,7 @@ class DashboardShell extends ConsumerWidget {
           ? null
           : FloatingActionButton(
               onPressed: () {
-                context.push(AppRouteNames.createConsumption);
+                context.push('/create-consumption');
               },
               tooltip: 'Add consumption',
               child: const Icon(Icons.add),
@@ -105,15 +107,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: AppRouteNames.editCycle,
         builder: (context, state) {
           final cycleId = state.pathParameters['cycleId']!;
-          return CreateCycleScreen(cycleId: cycleId);
+          return EditCycleScreen(cycleId: cycleId);
         },
       ),
       GoRoute(
         path: '/create-consumption',
         name: AppRouteNames.createConsumption,
+        builder: (context, state) => const CreateConsumptionScreen(),
+      ),
+      GoRoute(
+        path: '/edit-consumption/:readingId',
+        name: AppRouteNames.editConsumption,
         builder: (context, state) {
-          final reading = state.extra as ElectricityReading?;
-          return CreateConsumptionScreen(reading: reading);
+          final readingId = state.pathParameters['readingId']!;
+          return EditConsumptionScreen(readingId: readingId);
         },
       ),
       GoRoute(

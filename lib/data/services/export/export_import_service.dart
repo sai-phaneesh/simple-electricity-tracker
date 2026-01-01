@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:electricity/data/datasources/houses_datasource.dart';
 import 'package:electricity/data/datasources/cycles_datasource.dart';
 import 'package:electricity/data/datasources/electricity_readings_datasource.dart';
@@ -10,6 +11,26 @@ import 'package:electricity/domain/entities/cycle.dart';
 import 'package:electricity/domain/entities/electricity_reading.dart';
 
 /// Main service for handling data export and import operations
+// The real `ExportImportService` is defined below; helper functions appear
+// above to support background decryption via `compute()`.
+
+// Top-level helper for compute() to run decryption on a background isolate
+String? _decryptEncryptedPayload(Map<String, String> args) {
+  try {
+    final data = EncryptedData(
+      salt: args['salt'] ?? '',
+      iv: args['iv'] ?? '',
+      ciphertext: args['ciphertext'] ?? '',
+      hmac: args['hmac'] ?? '',
+    );
+    final pass = args['passphrase'] ?? '';
+    return ExportCryptoService.decrypt(data, pass);
+  } catch (e) {
+    // Swallow and return null to indicate failure
+    return null;
+  }
+}
+
 class ExportImportService {
   final HousesDataSource _housesDataSource;
   final CyclesDataSource _cyclesDataSource;
@@ -81,15 +102,9 @@ class ExportImportService {
       final payloadJson = jsonEncode(payload.toJson());
       final payloadChecksum = ExportCryptoService.generateChecksum(payloadJson);
 
-      // Create metadata
-      final metadata = ExportMetadata.create(
-        userId: userId,
-        userEmail: userEmail,
-        housesCount: houses.length,
-        cyclesCount: cycles.length,
-        readingsCount: readings.length,
-        payloadChecksum: payloadChecksum,
-      );
+      // Note: metadata is created inside the ExportPackage and will be
+      // encrypted as part of the package payload. We no longer store
+      // unencrypted metadata at the top level.
 
       onProgress?.call(
         ExportProgress(
@@ -108,6 +123,7 @@ class ExportImportService {
         ),
         userId: userId,
         userEmail: userEmail,
+        payloadChecksum: payloadChecksum,
       );
 
       // Encrypt the package
@@ -115,7 +131,6 @@ class ExportImportService {
       final encryptedFile = EncryptedExportFile.create(
         jsonPayload: packageJson,
         passphrase: passphrase,
-        metadata: jsonEncode(metadata.toJson()),
       );
 
       onProgress?.call(
@@ -136,8 +151,7 @@ class ExportImportService {
           fileSizeBytes: utf8.encode(jsonEncode(encryptedFile.toJson())).length,
         ),
       );
-    } catch (e, stackTrace) {
-      debugPrint('Export error: $e\n$stackTrace');
+    } catch (e) {
       return ExportResult.failure('Failed to export data: $e');
     }
   }
@@ -147,6 +161,7 @@ class ExportImportService {
     required String fileContent,
     required String passphrase,
     required String currentUserId,
+    String? currentUserEmail,
     required ImportMode mode,
     void Function(ImportProgress)? onProgress,
   }) async {
@@ -173,7 +188,18 @@ class ExportImportService {
       }
 
       // Validate file structure
-      final encryptedFile = EncryptedExportFile.fromJson(fileJson);
+      late EncryptedExportFile encryptedFile;
+      try {
+        encryptedFile = EncryptedExportFile.fromJson(fileJson);
+      } catch (e) {
+        return ImportResult.failure([
+          ValidationError(
+            type: ValidationErrorType.invalidMagicHeader,
+            message: 'File is not a valid Electricity Tracker backup',
+          ),
+        ]);
+      }
+
       if (!encryptedFile.isValid) {
         return ImportResult.failure([
           ValidationError(
@@ -191,11 +217,15 @@ class ExportImportService {
         ),
       );
 
-      // Decrypt the payload
-      final decrypted = ExportCryptoService.decrypt(
-        encryptedFile.encryptedPayload,
-        passphrase,
-      );
+      // Decrypt the payload in background
+      final decrypted =
+          await compute(_decryptEncryptedPayload, <String, String>{
+            'salt': encryptedFile.encryptedPayload.salt,
+            'iv': encryptedFile.encryptedPayload.iv,
+            'ciphertext': encryptedFile.encryptedPayload.ciphertext,
+            'hmac': encryptedFile.encryptedPayload.hmac,
+            'passphrase': passphrase,
+          });
 
       if (decrypted == null) {
         return ImportResult.failure([
@@ -234,6 +264,7 @@ class ExportImportService {
       final validationResult = await validator.validate(
         package: package,
         currentUserId: currentUserId,
+        currentUserEmail: currentUserEmail,
         housesDataSource: _housesDataSource,
         cyclesDataSource: _cyclesDataSource,
         readingsDataSource: _readingsDataSource,
@@ -274,13 +305,11 @@ class ExportImportService {
           progress: 1.0,
         ),
       );
-
       return ImportResult.success(
         summary: validationResult.summary!,
         stats: importStats,
       );
-    } catch (e, stackTrace) {
-      debugPrint('Import error: $e\n$stackTrace');
+    } catch (e) {
       return ImportResult.failure([
         ValidationError(
           type: ValidationErrorType.corruptedData,
@@ -295,11 +324,33 @@ class ExportImportService {
     required String fileContent,
     required String passphrase,
     required String currentUserId,
+    String? currentUserEmail,
   }) async {
     try {
       // Parse and decrypt
-      final fileJson = jsonDecode(fileContent) as Map<String, dynamic>;
-      final encryptedFile = EncryptedExportFile.fromJson(fileJson);
+      Map<String, dynamic> fileJson;
+      try {
+        fileJson = jsonDecode(fileContent) as Map<String, dynamic>;
+      } catch (e) {
+        return ImportValidationResult.failure([
+          ValidationError(
+            type: ValidationErrorType.invalidFormat,
+            message: 'File is not valid JSON',
+          ),
+        ]);
+      }
+
+      late EncryptedExportFile encryptedFile;
+      try {
+        encryptedFile = EncryptedExportFile.fromJson(fileJson);
+      } catch (e) {
+        return ImportValidationResult.failure([
+          ValidationError(
+            type: ValidationErrorType.invalidMagicHeader,
+            message: 'File is not a valid Electricity Tracker backup',
+          ),
+        ]);
+      }
 
       if (!encryptedFile.isValid) {
         return ImportValidationResult.failure([
@@ -309,11 +360,14 @@ class ExportImportService {
           ),
         ]);
       }
-
-      final decrypted = ExportCryptoService.decrypt(
-        encryptedFile.encryptedPayload,
-        passphrase,
-      );
+      final decrypted =
+          await compute(_decryptEncryptedPayload, <String, String>{
+            'salt': encryptedFile.encryptedPayload.salt,
+            'iv': encryptedFile.encryptedPayload.iv,
+            'ciphertext': encryptedFile.encryptedPayload.ciphertext,
+            'hmac': encryptedFile.encryptedPayload.hmac,
+            'passphrase': passphrase,
+          });
 
       if (decrypted == null) {
         return ImportValidationResult.failure([
@@ -324,15 +378,26 @@ class ExportImportService {
         ]);
       }
 
-      final package = ExportPackage.fromJson(
-        jsonDecode(decrypted) as Map<String, dynamic>,
-      );
+      ExportPackage package;
+      try {
+        package = ExportPackage.fromJson(
+          jsonDecode(decrypted) as Map<String, dynamic>,
+        );
+      } catch (e) {
+        return ImportValidationResult.failure([
+          ValidationError(
+            type: ValidationErrorType.corruptedData,
+            message: 'Decrypted data is corrupted',
+          ),
+        ]);
+      }
 
       // Validate
       final validator = ImportValidator();
       return await validator.validate(
         package: package,
         currentUserId: currentUserId,
+        currentUserEmail: currentUserEmail,
         housesDataSource: _housesDataSource,
         cyclesDataSource: _cyclesDataSource,
         readingsDataSource: _readingsDataSource,
@@ -489,7 +554,7 @@ class ExportImportService {
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     final timeStr =
         '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
-    return 'electricity_tracker_backup_$dateStr\_$timeStr${EncryptedExportFile.fileExtension}';
+    return 'electricity_tracker_backup_${dateStr}_$timeStr${EncryptedExportFile.fileExtension}';
   }
 }
 

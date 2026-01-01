@@ -192,7 +192,7 @@ class ConsumptionsListView extends ConsumerWidget {
               reading: reading,
               index: readings.length - index,
               onEdit: () {
-                context.push('/create-consumption', extra: reading);
+                context.push('/edit-consumption/${reading.id}');
               },
               onDelete: () async {
                 final shouldDelete = await showDialog<bool>(

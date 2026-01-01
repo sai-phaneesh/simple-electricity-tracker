@@ -55,8 +55,11 @@ dependencies:
 
   # Export/Import functionality
   crypto: ^3.0.5
-  file_picker: ^8.1.7
-  share_plus: ^10.1.4
+  file_picker: ^10.3.8
+  share_plus: ^12.0.1
+  file_selector: ^1.1.0
+  permission_handler: ^12.0.1
+  flutter_file_dialog: ^3.0.3
 
 dev_dependencies:
   flutter_test:

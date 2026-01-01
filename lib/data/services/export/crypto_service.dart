@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
@@ -109,7 +110,8 @@ class ExportCryptoService {
 
       // Decrypt
       final decrypted = _xorEncrypt(ciphertext, key, iv);
-      return utf8.decode(decrypted);
+      final decoded = utf8.decode(decrypted);
+      return decoded;
     } catch (e) {
       return null;
     }
@@ -214,13 +216,13 @@ class EncryptedExportFile {
   final String magic;
   final int version;
   final EncryptedData encryptedPayload;
-  final String metadataJson; // Unencrypted metadata for preview
+  // NOTE: We no longer store `metadataJson` unencrypted at the top-level.
+  // All metadata is stored inside the encrypted payload (ExportPackage.metadata).
 
   const EncryptedExportFile({
     required this.magic,
     required this.version,
     required this.encryptedPayload,
-    required this.metadataJson,
   });
 
   Map<String, dynamic> toJson() {
@@ -228,7 +230,7 @@ class EncryptedExportFile {
       'magic': magic,
       'version': version,
       'encrypted_payload': encryptedPayload.toJson(),
-      'metadata': metadataJson,
+      // metadata intentionally omitted to keep metadata encrypted
     };
   }
 
@@ -239,21 +241,18 @@ class EncryptedExportFile {
       encryptedPayload: EncryptedData.fromJson(
         json['encrypted_payload'] as Map<String, dynamic>,
       ),
-      metadataJson: json['metadata'] as String,
     );
   }
 
-  /// Create an encrypted export file
+  /// Create an encrypted export file (metadata kept inside the encrypted payload)
   factory EncryptedExportFile.create({
     required String jsonPayload,
     required String passphrase,
-    required String metadata,
   }) {
     return EncryptedExportFile(
       magic: magicHeader,
       version: 1,
       encryptedPayload: ExportCryptoService.encrypt(jsonPayload, passphrase),
-      metadataJson: metadata,
     );
   }
 
