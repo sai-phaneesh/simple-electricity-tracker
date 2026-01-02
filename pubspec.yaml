@@ -77,6 +77,10 @@ dev_dependencies:
   build_runner: ^2.8.0
   json_annotation: ^4.9.0
 
+  # App icon / splash tooling
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.2.0
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -86,6 +90,39 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/app-icon.png
+
+flutter_native_splash:
+  android: true
+  ios: true
+  web: false
+  fullscreen: true
+
+  # Light (default) - match app scaffold background
+  color: "#FEFBFF"
+  image: assets/app-icon.png
+  ios_content_mode: scaleAspectFit
+  android_gravity: center
+
+  # Dark mode variant
+  color_dark: "#121212"
+  image_dark: assets/app-icon.png
+
+  # Android 12 adaptive icon (use app icon)
+  android_12:
+    image: assets/app-icon.png
+    color: "#FEFBFF"
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+
+  image_path: "assets/app-icon.png"
+
+  remove_alpha: true
+  remove_alpha_ios: true
 
   # To add assets to your application, add an assets section, like this:
   # assets:
